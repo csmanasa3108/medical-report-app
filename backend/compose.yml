@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: medical-report-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: medical_reports
+      POSTGRES_USER: medical_reports
+      POSTGRES_PASSWORD: medical_reports
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medical_reports -d medical_reports"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

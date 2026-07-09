@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: medical-report-app-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/medical_reports
+    username: medical_reports
+    password: medical_reports
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
