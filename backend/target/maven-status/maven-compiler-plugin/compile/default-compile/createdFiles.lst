@@ -1,2 +1,7 @@
+com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/MedicalReportAppBackendApplication.class
 com/medicalreportapp/health/HealthController.class
+com/medicalreportapp/testcatalog/TestCatalogEntry.class
+com/medicalreportapp/testcatalog/TestCatalogService.class
+com/medicalreportapp/testcatalog/TestCatalogController.class
+com/medicalreportapp/testcatalog/TestCatalogRepository.class
