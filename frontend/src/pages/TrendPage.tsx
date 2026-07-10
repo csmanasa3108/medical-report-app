@@ -206,6 +206,7 @@ function TrendPage() {
     () => (trend ? getSummary(trend, points) : null),
     [points, trend]
   );
+  const trendUnit = trend?.unit ?? "";
 
   return (
     <section className="page-section">
@@ -226,26 +227,26 @@ function TrendPage() {
               <p className="eyebrow">Trend</p>
               <h2>{trend.testName}</h2>
             </div>
-            <span className="unit-badge">{trend.unit}</span>
+            <span className="unit-badge">{trendUnit}</span>
           </div>
 
           <dl className="trend-summary">
             <div>
               <dt>Latest value</dt>
               <dd>
-                {formatNumber(summary?.latestValue)} {trend.unit}
+                {formatNumber(summary?.latestValue)} {trendUnit}
               </dd>
             </div>
             <div>
               <dt>Previous value</dt>
               <dd>
-                {formatNumber(summary?.previousValue)} {trend.unit}
+                {formatNumber(summary?.previousValue)} {trendUnit}
               </dd>
             </div>
             <div>
               <dt>Absolute change</dt>
               <dd>
-                {formatNumber(summary?.absoluteChange)} {trend.unit}
+                {formatNumber(summary?.absoluteChange)} {trendUnit}
               </dd>
             </div>
             <div>
@@ -259,7 +260,7 @@ function TrendPage() {
               No chart points were returned for this test.
             </div>
           ) : (
-            <TrendLineChart points={points} unit={trend.unit} />
+            <TrendLineChart points={points} unit={trendUnit} />
           )}
         </>
       ) : null}

@@ -4,8 +4,8 @@ export type TestCatalogResponse = {
   id: string;
   canonicalName: string;
   displayName: string;
-  defaultUnit: string;
-  category: string;
+  defaultUnit: string | null;
+  category: string | null;
 };
 
 export type CreateLabObservationRequest = {
@@ -38,7 +38,7 @@ export type LabTrendPointResponse = {
 export type LabTrendResponse = {
   testId: string;
   testName: string;
-  unit: string;
+  unit: string | null;
   points: LabTrendPointResponse[];
   latestValue?: number | null;
   previousValue?: number | null;

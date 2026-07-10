@@ -56,7 +56,7 @@ function AddObservationPage() {
           setForm((currentForm) => ({
             ...currentForm,
             testId: firstTest.id,
-            unit: firstTest.defaultUnit
+            unit: firstTest.defaultUnit ?? ""
           }));
         }
       })
