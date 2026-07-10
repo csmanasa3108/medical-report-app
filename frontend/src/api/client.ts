@@ -30,6 +30,22 @@ export type LabObservationResponse = {
   abnormalFlag: string;
 };
 
+export type LabTrendPointResponse = {
+  date: string;
+  value: number | string;
+};
+
+export type LabTrendResponse = {
+  testId: string;
+  testName: string;
+  unit: string;
+  points: LabTrendPointResponse[];
+  latestValue?: number | null;
+  previousValue?: number | null;
+  absoluteChange?: number | null;
+  percentChange?: number | null;
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -71,4 +87,10 @@ export function createObservation(payload: CreateLabObservationRequest) {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export function getLabTrend(testId: string) {
+  return apiRequest<LabTrendResponse>(
+    `/api/analytics/tests/${encodeURIComponent(testId)}/trend`
+  );
 }

@@ -14,7 +14,9 @@ function App() {
         <nav className="nav-links" aria-label="Primary navigation">
           <NavLink to="/">Dashboard</NavLink>
           <NavLink to="/observations/new">Add Observation</NavLink>
-          <NavLink to="/tests/hemoglobin/trend">Hemoglobin Trend</NavLink>
+          <NavLink to="/tests/00000000-0000-4000-8000-000000000101/trend">
+            Hemoglobin Trend
+          </NavLink>
         </nav>
       </header>
 

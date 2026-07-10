@@ -152,6 +152,119 @@ h1 {
   background: #fff0f0;
 }
 
+.trend-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.trend-header h2 {
+  margin-bottom: 0;
+}
+
+.unit-badge {
+  border: 1px solid #c8d2dc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #2d3a45;
+  background: #f7f9fb;
+  font-weight: 700;
+}
+
+.trend-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.trend-summary div {
+  border: 1px solid #d9e0e7;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfd;
+}
+
+.trend-summary dt {
+  color: #52616f;
+  font-size: 0.85rem;
+}
+
+.trend-summary dd {
+  margin: 4px 0 0;
+  color: #17202a;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.trend-chart {
+  width: 100%;
+  height: 320px;
+  overflow-x: auto;
+}
+
+.trend-chart svg {
+  display: block;
+  width: 100%;
+  min-width: 520px;
+  height: 320px;
+  border: 1px solid #d9e0e7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.trend-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  border: 1px dashed #c8d2dc;
+  border-radius: 8px;
+  color: #52616f;
+  background: #fbfcfd;
+}
+
+.chart-axis {
+  stroke: #b8c4cf;
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke: #216869;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.chart-point {
+  fill: #216869;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.chart-label,
+.chart-point-label {
+  fill: #52616f;
+  font-size: 12px;
+}
+
+.chart-point-label {
+  text-anchor: middle;
+}
+
+.chart-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 520px;
+  margin-top: 8px;
+  color: #52616f;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 700px) {
   .app-header {
     align-items: flex-start;
@@ -159,6 +272,14 @@ h1 {
   }
 
   .observation-form {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-header {
+    flex-direction: column;
+  }
+
+  .trend-summary {
     grid-template-columns: 1fr;
   }
 }
