@@ -18,6 +18,6 @@ public class TestCatalogLookupService {
     @Transactional(readOnly = true)
     public Optional<TestCatalogLookup> findById(UUID id) {
         return testCatalogRepository.findById(id)
-            .map(entry -> new TestCatalogLookup(entry.getId(), entry.getDisplayName()));
+            .map(entry -> new TestCatalogLookup(entry.getId(), entry.getDisplayName(), entry.getDefaultUnit()));
     }
 }

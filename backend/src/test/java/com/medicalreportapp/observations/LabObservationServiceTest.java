@@ -9,6 +9,7 @@ import com.medicalreportapp.testcatalog.TestCatalogLookup;
 import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -48,7 +49,7 @@ class LabObservationServiceTest {
             "normal"
         );
 
-        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose")));
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
         when(labObservationRepository.save(any(LabObservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -77,5 +78,104 @@ class LabObservationServiceTest {
         assertThat(response.referenceLow()).isEqualByComparingTo("70");
         assertThat(response.referenceHigh()).isEqualByComparingTo("99");
         assertThat(response.abnormalFlag()).isEqualTo("normal");
+    }
+
+    @Test
+    void trendReturnsOrderedPointsAndSummaryValuesForDefaultUser() {
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
+            observation(userId, testId, "2026-07-01", "12.0", "g/dL"),
+            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        ));
+
+        LabObservationTrendResponse response = labObservationService.trend(testId);
+
+        assertThat(response.testId()).isEqualTo(testId);
+        assertThat(response.testName()).isEqualTo("Hemoglobin");
+        assertThat(response.unit()).isEqualTo("g/dL");
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::date)
+            .containsExactly(LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-09"));
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::value)
+            .containsExactly(new BigDecimal("12.0"), new BigDecimal("12.8"));
+        assertThat(response.latestValue()).isEqualByComparingTo("12.8");
+        assertThat(response.previousValue()).isEqualByComparingTo("12.0");
+        assertThat(response.absoluteChange()).isEqualByComparingTo("0.8");
+        assertThat(response.percentChange()).isEqualByComparingTo("6.6667");
+    }
+
+    @Test
+    void trendReturnsEmptySummaryWhenNoObservationsExistForKnownTest() {
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of());
+
+        LabObservationTrendResponse response = labObservationService.trend(testId);
+
+        assertThat(response.points()).isEmpty();
+        assertThat(response.unit()).isEqualTo("g/dL");
+        assertThat(response.latestValue()).isNull();
+        assertThat(response.previousValue()).isNull();
+        assertThat(response.absoluteChange()).isNull();
+        assertThat(response.percentChange()).isNull();
+    }
+
+    @Test
+    void trendReturnsLatestOnlyWhenOneObservationExists() {
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
+            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        ));
+
+        LabObservationTrendResponse response = labObservationService.trend(testId);
+
+        assertThat(response.latestValue()).isEqualByComparingTo("12.8");
+        assertThat(response.previousValue()).isNull();
+        assertThat(response.absoluteChange()).isNull();
+        assertThat(response.percentChange()).isNull();
+    }
+
+    @Test
+    void trendSkipsPercentChangeWhenPreviousValueIsZero() {
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
+            observation(userId, testId, "2026-07-01", "0", "g/dL"),
+            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        ));
+
+        LabObservationTrendResponse response = labObservationService.trend(testId);
+
+        assertThat(response.latestValue()).isEqualByComparingTo("12.8");
+        assertThat(response.previousValue()).isEqualByComparingTo("0");
+        assertThat(response.absoluteChange()).isEqualByComparingTo("12.8");
+        assertThat(response.percentChange()).isNull();
+    }
+
+    private static LabObservation observation(UUID userId, UUID testId, String observedAt, String numericValue, String unit) {
+        return new LabObservation(
+            UUID.randomUUID(),
+            userId,
+            testId,
+            LocalDate.parse(observedAt),
+            new BigDecimal(numericValue),
+            unit,
+            new BigDecimal("10"),
+            new BigDecimal("15"),
+            "normal"
+        );
     }
 }

@@ -2,5 +2,5 @@ package com.medicalreportapp.testcatalog;
 
 import java.util.UUID;
 
-public record TestCatalogLookup(UUID id, String displayName) {
+public record TestCatalogLookup(UUID id, String displayName, String defaultUnit) {
 }
