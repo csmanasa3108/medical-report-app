@@ -89,9 +89,76 @@ h1 {
   color: #43515f;
 }
 
+.observation-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 720px;
+}
+
+.observation-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #2d3a45;
+  font-weight: 600;
+}
+
+.observation-form input,
+.observation-form select {
+  width: 100%;
+  border: 1px solid #c8d2dc;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #17202a;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 400;
+}
+
+.observation-form button {
+  justify-self: start;
+  border: 1px solid #216869;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #216869;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.observation-form button:disabled {
+  border-color: #9caab7;
+  background: #9caab7;
+  cursor: not-allowed;
+}
+
+.status-message {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.success-message {
+  border: 1px solid #8ab89a;
+  color: #205932;
+  background: #edf8f0;
+}
+
+.error-message {
+  border: 1px solid #d99a9a;
+  color: #8a1f1f;
+  background: #fff0f0;
+}
+
 @media (max-width: 700px) {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .observation-form {
+    grid-template-columns: 1fr;
   }
 }

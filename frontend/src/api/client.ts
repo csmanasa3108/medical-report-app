@@ -1,5 +1,35 @@
 export const API_BASE_URL = "http://localhost:8080";
 
+export type TestCatalogResponse = {
+  id: string;
+  canonicalName: string;
+  displayName: string;
+  defaultUnit: string;
+  category: string;
+};
+
+export type CreateLabObservationRequest = {
+  testId: string;
+  observedAt: string;
+  numericValue: number;
+  unit: string;
+  referenceLow: number;
+  referenceHigh: number;
+  abnormalFlag: string;
+};
+
+export type LabObservationResponse = {
+  id: string;
+  testId: string;
+  testName: string;
+  observedAt: string;
+  numericValue: number;
+  unit: string;
+  referenceLow: number;
+  referenceHigh: number;
+  abnormalFlag: string;
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -13,8 +43,32 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`);
+    const fallbackMessage = `Request failed with status ${response.status}`;
+    const responseText = await response.text();
+    let message = fallbackMessage;
+
+    if (responseText) {
+      try {
+        const body = JSON.parse(responseText) as { message?: string; error?: string };
+        message = body.message || body.error || fallbackMessage;
+      } catch {
+        message = responseText;
+      }
+    }
+
+    throw new Error(message);
   }
 
   return response.json() as Promise<T>;
+}
+
+export function getTests() {
+  return apiRequest<TestCatalogResponse[]>("/api/tests");
+}
+
+export function createObservation(payload: CreateLabObservationRequest) {
+  return apiRequest<LabObservationResponse>("/api/observations", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }

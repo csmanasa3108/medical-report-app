@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 
 function TrendPage() {
   const { testId } = useParams();
-  const displayName = testId ? testId.replaceAll("-", " ") : "selected test";
+  const displayName = testId ? testId.split("-").join(" ") : "selected test";
 
   return (
     <section className="page-section">
