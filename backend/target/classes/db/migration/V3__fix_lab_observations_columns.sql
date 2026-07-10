@@ -1,0 +1,11 @@
+ALTER TABLE lab_observations
+    ADD COLUMN IF NOT EXISTS observed_at DATE,
+    ADD COLUMN IF NOT EXISTS numeric_value DECIMAL(12,4),
+    ADD COLUMN IF NOT EXISTS unit VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS reference_low DECIMAL(12,4),
+    ADD COLUMN IF NOT EXISTS reference_high DECIMAL(12,4),
+    ADD COLUMN IF NOT EXISTS abnormal_flag VARCHAR(20);
+
+ALTER TABLE lab_observations
+    ALTER COLUMN unit TYPE VARCHAR(50),
+    ALTER COLUMN abnormal_flag TYPE VARCHAR(20);
