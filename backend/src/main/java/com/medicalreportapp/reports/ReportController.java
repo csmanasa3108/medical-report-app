@@ -51,4 +51,14 @@ class ReportController {
     public ReportResponse findById(@PathVariable UUID reportId) {
         return reportService.findById(reportId);
     }
+
+    @PostMapping("/api/reports/{reportId}/extract-text")
+    public ReportTextResponse extractText(@PathVariable UUID reportId) {
+        return reportService.extractText(reportId);
+    }
+
+    @GetMapping("/api/reports/{reportId}/text")
+    public ReportTextResponse findText(@PathVariable UUID reportId) {
+        return reportService.findText(reportId);
+    }
 }

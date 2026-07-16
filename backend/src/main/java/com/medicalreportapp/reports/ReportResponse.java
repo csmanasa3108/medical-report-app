@@ -13,6 +13,8 @@ public record ReportResponse(
     String storagePath,
     String contentType,
     Long fileSizeBytes,
+    String extractionStatus,
+    Instant extractedAt,
     String status,
     Instant createdAt
 ) {
@@ -27,6 +29,8 @@ public record ReportResponse(
             report.getStoragePath(),
             report.getContentType(),
             report.getFileSizeBytes(),
+            report.getExtractionStatus(),
+            report.getExtractedAt(),
             report.getStatus().name(),
             report.getCreatedAt()
         );

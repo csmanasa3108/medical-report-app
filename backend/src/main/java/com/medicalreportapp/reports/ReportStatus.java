@@ -2,5 +2,6 @@ package com.medicalreportapp.reports;
 
 enum ReportStatus {
     CREATED,
-    UPLOADED
+    UPLOADED,
+    TEXT_EXTRACTED
 }

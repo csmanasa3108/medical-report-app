@@ -47,6 +47,8 @@ class ReportControllerTest {
             null,
             null,
             null,
+            null,
+            null,
             "CREATED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));
@@ -91,6 +93,8 @@ class ReportControllerTest {
             "uploads/reports/" + reportId + ".pdf",
             "application/pdf",
             13L,
+            null,
+            null,
             "UPLOADED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));
@@ -149,8 +153,8 @@ class ReportControllerTest {
         UUID olderReportId = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
         when(reportService.findAll()).thenReturn(List.of(
-            new ReportResponse(newestReportId, "new.pdf", LocalDate.parse("2026-07-10"), "Quest Diagnostics", null, null, null, null, "CREATED", Instant.parse("2026-07-10T12:00:00Z")),
-            new ReportResponse(olderReportId, "old.pdf", LocalDate.parse("2026-07-09"), "Labcorp", null, null, null, null, "CREATED", Instant.parse("2026-07-09T12:00:00Z"))
+            new ReportResponse(newestReportId, "new.pdf", LocalDate.parse("2026-07-10"), "Quest Diagnostics", null, null, null, null, null, null, "CREATED", Instant.parse("2026-07-10T12:00:00Z")),
+            new ReportResponse(olderReportId, "old.pdf", LocalDate.parse("2026-07-09"), "Labcorp", null, null, null, null, null, null, "CREATED", Instant.parse("2026-07-09T12:00:00Z"))
         ));
 
         mockMvc.perform(get("/api/reports"))
@@ -175,6 +179,8 @@ class ReportControllerTest {
             null,
             null,
             null,
+            null,
+            null,
             "CREATED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));
@@ -183,6 +189,43 @@ class ReportControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(reportId.toString()))
             .andExpect(jsonPath("$.originalFilename").value("lab-report-july.pdf"));
+    }
+
+    @Test
+    void extractTextReturnsExtractedText() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        when(reportService.extractText(reportId)).thenReturn(new ReportTextResponse(
+            reportId,
+            "TEXT_EXTRACTED",
+            Instant.parse("2026-07-10T13:00:00Z"),
+            "Hemoglobin 13.4 g/dL"
+        ));
+
+        mockMvc.perform(post("/api/reports/{reportId}/extract-text", reportId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$.extractionStatus").value("TEXT_EXTRACTED"))
+            .andExpect(jsonPath("$.extractedAt").value("2026-07-10T13:00:00Z"))
+            .andExpect(jsonPath("$.extractedText").value("Hemoglobin 13.4 g/dL"));
+    }
+
+    @Test
+    void findTextReturnsExtractedText() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        when(reportService.findText(reportId)).thenReturn(new ReportTextResponse(
+            reportId,
+            "TEXT_EXTRACTED",
+            Instant.parse("2026-07-10T13:00:00Z"),
+            "Hemoglobin 13.4 g/dL"
+        ));
+
+        mockMvc.perform(get("/api/reports/{reportId}/text", reportId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$.extractionStatus").value("TEXT_EXTRACTED"))
+            .andExpect(jsonPath("$.extractedText").value("Hemoglobin 13.4 g/dL"));
     }
 
     @Test

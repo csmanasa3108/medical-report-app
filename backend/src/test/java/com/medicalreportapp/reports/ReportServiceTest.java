@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.medicalreportapp.observations.DefaultUserProvider;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -22,6 +23,11 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -181,6 +187,84 @@ class ReportServiceTest {
     }
 
     @Test
+    void extractTextStoresPdfTextAndUpdatesStatus() throws Exception {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path pdfPath = reportUploadDirectory.resolve(reportId + ".pdf");
+        Files.write(pdfPath, testPdfBytes("Hemoglobin 13.4 g/dL"));
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReportTextResponse response = reportService.extractText(reportId);
+
+        ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(reportCaptor.capture());
+
+        Report savedReport = reportCaptor.getValue();
+        assertThat(savedReport.getExtractedText()).contains("Hemoglobin 13.4 g/dL");
+        assertThat(savedReport.getExtractionStatus()).isEqualTo("TEXT_EXTRACTED");
+        assertThat(savedReport.getStatus()).isEqualTo(ReportStatus.TEXT_EXTRACTED);
+        assertThat(savedReport.getExtractedAt()).isNotNull();
+
+        assertThat(response.reportId()).isEqualTo(reportId);
+        assertThat(response.extractionStatus()).isEqualTo("TEXT_EXTRACTED");
+        assertThat(response.extractedText()).contains("Hemoglobin 13.4 g/dL");
+    }
+
+    @Test
+    void extractTextRejectsReportWithoutStoragePath() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Report report = report(reportId.toString(), userId, "metadata-only.pdf", "2026-07-09");
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+
+        assertThatThrownBy(() -> reportService.extractText(reportId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void extractTextReturnsNotFoundWhenStoredFileIsMissing() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path missingPath = reportUploadDirectory.resolve("missing.pdf");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", missingPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+
+        assertThatThrownBy(() -> reportService.extractText(reportId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void findTextReturnsStoredText() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Report report = report(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09");
+        Instant extractedAt = Instant.parse("2026-07-10T13:00:00Z");
+        report.markTextExtracted("Hemoglobin 13.4 g/dL", extractedAt);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+
+        ReportTextResponse response = reportService.findText(reportId);
+
+        assertThat(response.reportId()).isEqualTo(reportId);
+        assertThat(response.extractionStatus()).isEqualTo("TEXT_EXTRACTED");
+        assertThat(response.extractedAt()).isEqualTo(extractedAt);
+        assertThat(response.extractedText()).isEqualTo("Hemoglobin 13.4 g/dL");
+    }
+
+    @Test
     void findByIdThrowsNotFoundWhenReportDoesNotExistForDefaultUser() {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -210,6 +294,23 @@ class ReportServiceTest {
         return report;
     }
 
+    private static Report uploadedReport(String reportId, UUID userId, String originalFilename, String reportDate, Path storagePath) {
+        Report report = new Report(
+            UUID.fromString(reportId),
+            userId,
+            originalFilename,
+            LocalDate.parse(reportDate),
+            "Quest Diagnostics",
+            storagePath.getFileName().toString(),
+            storagePath.toString(),
+            "application/pdf",
+            100L,
+            ReportStatus.UPLOADED
+        );
+        setCreatedAt(report, Instant.parse(reportDate + "T12:00:00Z"));
+        return report;
+    }
+
     private static void setCreatedAt(Report report, Instant createdAt) {
         try {
             java.lang.reflect.Field field = Report.class.getDeclaredField("createdAt");
@@ -217,6 +318,22 @@ class ReportServiceTest {
             field.set(report, createdAt);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
+        }
+    }
+
+    private static byte[] testPdfBytes(String text) throws Exception {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(72, 720);
+                contentStream.showText(text);
+                contentStream.endText();
+            }
+            document.save(outputStream);
+            return outputStream.toByteArray();
         }
     }
 }

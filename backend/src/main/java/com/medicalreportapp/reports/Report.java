@@ -43,6 +43,15 @@ class Report {
     @Column(name = "file_size_bytes")
     private Long fileSizeBytes;
 
+    @Column(name = "extracted_text", columnDefinition = "TEXT")
+    private String extractedText;
+
+    @Column(name = "extraction_status", length = 50)
+    private String extractionStatus;
+
+    @Column(name = "extracted_at")
+    private Instant extractedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private ReportStatus status;
@@ -114,11 +123,30 @@ class Report {
         return fileSizeBytes;
     }
 
+    String getExtractedText() {
+        return extractedText;
+    }
+
+    String getExtractionStatus() {
+        return extractionStatus;
+    }
+
+    Instant getExtractedAt() {
+        return extractedAt;
+    }
+
     ReportStatus getStatus() {
         return status;
     }
 
     Instant getCreatedAt() {
         return createdAt;
+    }
+
+    void markTextExtracted(String extractedText, Instant extractedAt) {
+        this.extractedText = extractedText;
+        this.extractionStatus = ReportStatus.TEXT_EXTRACTED.name();
+        this.extractedAt = extractedAt;
+        this.status = ReportStatus.TEXT_EXTRACTED;
     }
 }

@@ -6,9 +6,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -104,10 +108,48 @@ class ReportService {
 
     @Transactional(readOnly = true)
     public ReportResponse findById(UUID reportId) {
+        return ReportResponse.from(findReportForDefaultUser(reportId));
+    }
+
+    @Transactional
+    public ReportTextResponse extractText(UUID reportId) {
+        Report report = findReportForDefaultUser(reportId);
+        Path storagePath = resolveStoragePath(report);
+
+        if (!Files.exists(storagePath)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stored report file not found");
+        }
+
+        String extractedText = extractPdfText(storagePath);
+        report.markTextExtracted(extractedText, Instant.now());
+
+        return ReportTextResponse.from(reportRepository.saveAndFlush(report));
+    }
+
+    @Transactional(readOnly = true)
+    public ReportTextResponse findText(UUID reportId) {
+        return ReportTextResponse.from(findReportForDefaultUser(reportId));
+    }
+
+    private Report findReportForDefaultUser(UUID reportId) {
         UUID userId = defaultUserProvider.getDefaultUserId();
         return reportRepository.findByIdAndUserId(reportId, userId)
-            .map(ReportResponse::from)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+    }
+
+    private static Path resolveStoragePath(Report report) {
+        if (!StringUtils.hasText(report.getStoragePath())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report has no stored file path");
+        }
+        return Path.of(report.getStoragePath());
+    }
+
+    private static String extractPdfText(Path storagePath) {
+        try (PDDocument document = Loader.loadPDF(storagePath.toFile())) {
+            return new PDFTextStripper().getText(document);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not extract text from stored PDF", exception);
+        }
     }
 
     private static void validateUpload(MultipartFile file) {

@@ -8,6 +8,7 @@ com/medicalreportapp/observations/LabObservationTrendPointResponse.class
 com/medicalreportapp/observations/LabObservationTrendResponse.class
 com/medicalreportapp/health/HealthController.class
 com/medicalreportapp/reports/ReportService.class
+com/medicalreportapp/reports/ReportTextResponse.class
 com/medicalreportapp/testcatalog/TestCatalogRepository.class
 com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/reports/ReportStatus.class
