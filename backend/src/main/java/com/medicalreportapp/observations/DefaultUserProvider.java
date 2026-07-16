@@ -7,15 +7,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-class DefaultUserProvider {
+public class DefaultUserProvider {
 
     private final JdbcTemplate jdbcTemplate;
 
-    DefaultUserProvider(JdbcTemplate jdbcTemplate) {
+    public DefaultUserProvider(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    UUID getDefaultUserId() {
+    public UUID getDefaultUserId() {
         try {
             return jdbcTemplate.queryForObject("select id from users order by id limit 1", UUID.class);
         } catch (DataAccessException usersTableException) {

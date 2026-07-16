@@ -11,6 +11,13 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/observations/LabObservationService.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/observations/LabObservationTrendPointResponse.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/observations/LabObservationTrendResponse.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/CreateReportRequest.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/Report.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/ReportController.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/ReportRepository.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/ReportResponse.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/ReportService.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/reports/ReportStatus.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogController.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogEntry.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogLookup.java

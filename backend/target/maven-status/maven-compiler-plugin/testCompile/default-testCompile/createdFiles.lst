@@ -1,4 +1,6 @@
+com/medicalreportapp/reports/ReportServiceTest.class
+com/medicalreportapp/health/HealthControllerTest.class
 com/medicalreportapp/observations/LabObservationControllerTest.class
 com/medicalreportapp/observations/LabObservationServiceTest.class
 com/medicalreportapp/observations/LabObservationAnalyticsControllerTest.class
-com/medicalreportapp/health/HealthControllerTest.class
+com/medicalreportapp/reports/ReportControllerTest.class
