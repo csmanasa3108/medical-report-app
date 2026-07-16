@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,12 +18,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
-
-import org.springframework.http.HttpStatus;
 
 @WebMvcTest(ReportController.class)
 class ReportControllerTest {
@@ -42,6 +43,10 @@ class ReportControllerTest {
             "lab-report-july.pdf",
             LocalDate.parse("2026-07-09"),
             "Quest Diagnostics",
+            null,
+            null,
+            null,
+            null,
             "CREATED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));
@@ -68,6 +73,64 @@ class ReportControllerTest {
     }
 
     @Test
+    void uploadReturnsCreatedReport() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "lab-report-july.pdf",
+            "application/pdf",
+            "%PDF-1.7 test".getBytes()
+        );
+
+        when(reportService.upload(any(UploadReportRequest.class))).thenReturn(new ReportResponse(
+            reportId,
+            "lab-report-july.pdf",
+            LocalDate.parse("2026-07-09"),
+            "Quest Diagnostics",
+            reportId + ".pdf",
+            "uploads/reports/" + reportId + ".pdf",
+            "application/pdf",
+            13L,
+            "UPLOADED",
+            Instant.parse("2026-07-10T12:00:00Z")
+        ));
+
+        mockMvc.perform(multipart("/api/reports/upload")
+                .file(file)
+                .param("reportDate", "2026-07-09")
+                .param("labName", "Quest Diagnostics"))
+            .andExpect(status().isCreated())
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.id").value(reportId.toString()))
+            .andExpect(jsonPath("$.originalFilename").value("lab-report-july.pdf"))
+            .andExpect(jsonPath("$.reportDate").value("2026-07-09"))
+            .andExpect(jsonPath("$.labName").value("Quest Diagnostics"))
+            .andExpect(jsonPath("$.storedFilename").value(reportId + ".pdf"))
+            .andExpect(jsonPath("$.storagePath").value("uploads/reports/" + reportId + ".pdf"))
+            .andExpect(jsonPath("$.contentType").value("application/pdf"))
+            .andExpect(jsonPath("$.fileSizeBytes").value(13))
+            .andExpect(jsonPath("$.status").value("UPLOADED"));
+
+        verify(reportService).upload(any(UploadReportRequest.class));
+    }
+
+    @Test
+    void uploadReturnsBadRequestForRejectedFile() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "lab-report.txt",
+            "text/plain",
+            "not a pdf".getBytes()
+        );
+
+        when(reportService.upload(any(UploadReportRequest.class)))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only PDF uploads are supported"));
+
+        mockMvc.perform(multipart("/api/reports/upload").file(file))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createRejectsMissingOriginalFilename() throws Exception {
         mockMvc.perform(post("/api/reports")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -86,8 +149,8 @@ class ReportControllerTest {
         UUID olderReportId = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
         when(reportService.findAll()).thenReturn(List.of(
-            new ReportResponse(newestReportId, "new.pdf", LocalDate.parse("2026-07-10"), "Quest Diagnostics", "CREATED", Instant.parse("2026-07-10T12:00:00Z")),
-            new ReportResponse(olderReportId, "old.pdf", LocalDate.parse("2026-07-09"), "Labcorp", "CREATED", Instant.parse("2026-07-09T12:00:00Z"))
+            new ReportResponse(newestReportId, "new.pdf", LocalDate.parse("2026-07-10"), "Quest Diagnostics", null, null, null, null, "CREATED", Instant.parse("2026-07-10T12:00:00Z")),
+            new ReportResponse(olderReportId, "old.pdf", LocalDate.parse("2026-07-09"), "Labcorp", null, null, null, null, "CREATED", Instant.parse("2026-07-09T12:00:00Z"))
         ));
 
         mockMvc.perform(get("/api/reports"))
@@ -108,6 +171,10 @@ class ReportControllerTest {
             "lab-report-july.pdf",
             LocalDate.parse("2026-07-09"),
             "Quest Diagnostics",
+            null,
+            null,
+            null,
+            null,
             "CREATED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));

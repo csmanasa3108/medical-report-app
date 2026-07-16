@@ -7,18 +7,23 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.medicalreportapp.observations.DefaultUserProvider;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,8 +35,15 @@ class ReportServiceTest {
     @Mock
     private DefaultUserProvider defaultUserProvider;
 
-    @InjectMocks
+    @TempDir
+    private Path reportUploadDirectory;
+
     private ReportService reportService;
+
+    @BeforeEach
+    void setUp() {
+        reportService = new ReportService(reportRepository, defaultUserProvider, reportUploadDirectory.toString());
+    }
 
     @Test
     void createSavesReportForDefaultUserWithCreatedStatus() {
@@ -63,6 +75,79 @@ class ReportServiceTest {
         assertThat(response.reportDate()).isEqualTo(LocalDate.parse("2026-07-09"));
         assertThat(response.labName()).isEqualTo("Quest Diagnostics");
         assertThat(response.status()).isEqualTo("CREATED");
+    }
+
+    @Test
+    void uploadStoresPdfAndSavesUploadedReportMetadata() throws Exception {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "lab-report-july.pdf",
+            "application/pdf",
+            "%PDF-1.7 test".getBytes()
+        );
+        UploadReportRequest request = new UploadReportRequest(
+            file,
+            LocalDate.parse("2026-07-09"),
+            "Quest Diagnostics"
+        );
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReportResponse response = reportService.upload(request);
+
+        ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(reportCaptor.capture());
+
+        Report savedReport = reportCaptor.getValue();
+        assertThat(savedReport.getId()).isNotNull();
+        assertThat(savedReport.getUserId()).isEqualTo(userId);
+        assertThat(savedReport.getOriginalFilename()).isEqualTo("lab-report-july.pdf");
+        assertThat(savedReport.getReportDate()).isEqualTo(LocalDate.parse("2026-07-09"));
+        assertThat(savedReport.getLabName()).isEqualTo("Quest Diagnostics");
+        assertThat(savedReport.getStatus()).isEqualTo(ReportStatus.UPLOADED);
+        assertThat(savedReport.getStoredFilename()).isEqualTo(savedReport.getId() + ".pdf");
+        assertThat(savedReport.getStoragePath()).isEqualTo(reportUploadDirectory.resolve(savedReport.getStoredFilename()).toString());
+        assertThat(savedReport.getContentType()).isEqualTo("application/pdf");
+        assertThat(savedReport.getFileSizeBytes()).isEqualTo(file.getSize());
+        assertThat(Files.readString(reportUploadDirectory.resolve(savedReport.getStoredFilename()))).isEqualTo("%PDF-1.7 test");
+
+        assertThat(response.status()).isEqualTo("UPLOADED");
+        assertThat(response.storedFilename()).isEqualTo(savedReport.getStoredFilename());
+        assertThat(response.storagePath()).isEqualTo(savedReport.getStoragePath());
+        assertThat(response.contentType()).isEqualTo("application/pdf");
+        assertThat(response.fileSizeBytes()).isEqualTo(file.getSize());
+    }
+
+    @Test
+    void uploadRejectsEmptyFile() {
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "empty.pdf",
+            "application/pdf",
+            new byte[0]
+        );
+
+        assertThatThrownBy(() -> reportService.upload(new UploadReportRequest(file, null, null)))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void uploadRejectsNonPdfFile() {
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "lab-report.txt",
+            "text/plain",
+            "not a pdf".getBytes()
+        );
+
+        assertThatThrownBy(() -> reportService.upload(new UploadReportRequest(file, null, null)))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -115,6 +200,10 @@ class ReportServiceTest {
             originalFilename,
             LocalDate.parse(reportDate),
             "Quest Diagnostics",
+            null,
+            null,
+            null,
+            null,
             ReportStatus.CREATED
         );
         setCreatedAt(report, Instant.parse(reportDate + "T12:00:00Z"));

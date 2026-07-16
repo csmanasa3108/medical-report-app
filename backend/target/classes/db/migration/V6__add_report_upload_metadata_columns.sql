@@ -1,0 +1,5 @@
+ALTER TABLE reports
+    ADD COLUMN IF NOT EXISTS stored_filename VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS storage_path TEXT,
+    ADD COLUMN IF NOT EXISTS content_type VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS file_size_bytes BIGINT;

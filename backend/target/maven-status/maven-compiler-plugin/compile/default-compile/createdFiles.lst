@@ -13,5 +13,6 @@ com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/reports/ReportStatus.class
 com/medicalreportapp/testcatalog/TestCatalogService.class
 com/medicalreportapp/testcatalog/TestCatalogController.class
+com/medicalreportapp/reports/UploadReportRequest.class
 com/medicalreportapp/reports/ReportRepository.class
 com/medicalreportapp/reports/ReportController.class

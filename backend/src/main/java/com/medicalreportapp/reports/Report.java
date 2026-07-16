@@ -31,6 +31,18 @@ class Report {
     @Column(name = "lab_name", length = 255)
     private String labName;
 
+    @Column(name = "stored_filename", length = 255)
+    private String storedFilename;
+
+    @Column(name = "storage_path")
+    private String storagePath;
+
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+
+    @Column(name = "file_size_bytes")
+    private Long fileSizeBytes;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private ReportStatus status;
@@ -48,6 +60,10 @@ class Report {
         String originalFilename,
         LocalDate reportDate,
         String labName,
+        String storedFilename,
+        String storagePath,
+        String contentType,
+        Long fileSizeBytes,
         ReportStatus status
     ) {
         this.id = id;
@@ -55,6 +71,10 @@ class Report {
         this.originalFilename = originalFilename;
         this.reportDate = reportDate;
         this.labName = labName;
+        this.storedFilename = storedFilename;
+        this.storagePath = storagePath;
+        this.contentType = contentType;
+        this.fileSizeBytes = fileSizeBytes;
         this.status = status;
     }
 
@@ -76,6 +96,22 @@ class Report {
 
     String getLabName() {
         return labName;
+    }
+
+    String getStoredFilename() {
+        return storedFilename;
+    }
+
+    String getStoragePath() {
+        return storagePath;
+    }
+
+    String getContentType() {
+        return contentType;
+    }
+
+    Long getFileSizeBytes() {
+        return fileSizeBytes;
     }
 
     ReportStatus getStatus() {

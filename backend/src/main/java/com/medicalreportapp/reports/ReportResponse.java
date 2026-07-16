@@ -9,6 +9,10 @@ public record ReportResponse(
     String originalFilename,
     LocalDate reportDate,
     String labName,
+    String storedFilename,
+    String storagePath,
+    String contentType,
+    Long fileSizeBytes,
     String status,
     Instant createdAt
 ) {
@@ -19,6 +23,10 @@ public record ReportResponse(
             report.getOriginalFilename(),
             report.getReportDate(),
             report.getLabName(),
+            report.getStoredFilename(),
+            report.getStoragePath(),
+            report.getContentType(),
+            report.getFileSizeBytes(),
             report.getStatus().name(),
             report.getCreatedAt()
         );
