@@ -46,6 +46,21 @@ export type LabTrendResponse = {
   percentChange?: number | null;
 };
 
+export type CreateReportRequest = {
+  originalFilename: string;
+  reportDate: string;
+  labName: string;
+};
+
+export type ReportResponse = {
+  id: string;
+  originalFilename: string;
+  reportDate: string;
+  labName: string;
+  status: string;
+  createdAt: string;
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -93,4 +108,21 @@ export function getLabTrend(testId: string) {
   return apiRequest<LabTrendResponse>(
     `/api/analytics/tests/${encodeURIComponent(testId)}/trend`
   );
+}
+
+export function getReports() {
+  return apiRequest<ReportResponse[]>("/api/reports");
+}
+
+export function getReport(reportId: string) {
+  return apiRequest<ReportResponse>(
+    `/api/reports/${encodeURIComponent(reportId)}`
+  );
+}
+
+export function createReport(payload: CreateReportRequest) {
+  return apiRequest<ReportResponse>("/api/reports", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
