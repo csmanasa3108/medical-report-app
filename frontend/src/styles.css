@@ -148,6 +148,12 @@ h1 {
   font-weight: 600;
 }
 
+.optional-label {
+  color: #52616f;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
 .observation-form input,
 .observation-form select,
 .metadata-form input {
@@ -197,6 +203,41 @@ h1 {
   border: 1px solid #d99a9a;
   color: #8a1f1f;
   background: #fff0f0;
+}
+
+.upload-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 10px 0 0;
+}
+
+.upload-summary div {
+  min-width: 0;
+}
+
+.upload-summary dt {
+  color: #52616f;
+  font-size: 0.85rem;
+}
+
+.upload-summary dd {
+  margin: 2px 0 0;
+  color: #17202a;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.message-actions a {
+  color: #0b4f50;
+  font-weight: 700;
 }
 
 .trend-header {
@@ -383,6 +424,7 @@ h1 {
 
   .observation-form,
   .metadata-form,
+  .upload-summary,
   .detail-list {
     grid-template-columns: 1fr;
   }

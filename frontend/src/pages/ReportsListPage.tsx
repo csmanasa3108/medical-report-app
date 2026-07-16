@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getReports, ReportResponse } from "../api/client";
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
+  if (!value) {
+    return "Not provided";
+  }
+
   const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
@@ -108,7 +112,7 @@ function ReportsListPage() {
                 <tr key={report.id}>
                   <td>{report.originalFilename}</td>
                   <td>{formatDate(report.reportDate)}</td>
-                  <td>{report.labName}</td>
+                  <td>{report.labName || "Not provided"}</td>
                   <td>{report.status}</td>
                   <td>{formatDateTime(report.createdAt)}</td>
                   <td>

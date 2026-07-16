@@ -55,10 +55,16 @@ export type CreateReportRequest = {
 export type ReportResponse = {
   id: string;
   originalFilename: string;
-  reportDate: string;
-  labName: string;
+  reportDate: string | null;
+  labName: string | null;
   status: string;
   createdAt: string;
+};
+
+export type UploadReportRequest = {
+  file: File;
+  reportDate?: string;
+  labName?: string;
 };
 
 export async function apiRequest<T>(
@@ -125,4 +131,35 @@ export function createReport(payload: CreateReportRequest) {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function uploadReport(payload: UploadReportRequest) {
+  const formData = new FormData();
+  formData.append("file", payload.file);
+  formData.append("reportDate", payload.reportDate ?? "");
+  formData.append("labName", payload.labName ?? "");
+
+  const response = await fetch(`${API_BASE_URL}/api/reports/upload`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = `Upload failed with status ${response.status}`;
+    const responseText = await response.text();
+    let message = fallbackMessage;
+
+    if (responseText) {
+      try {
+        const body = JSON.parse(responseText) as { message?: string; error?: string };
+        message = body.message || body.error || fallbackMessage;
+      } catch {
+        message = responseText;
+      }
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<ReportResponse>;
 }
