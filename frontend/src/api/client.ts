@@ -61,6 +61,18 @@ export type ReportResponse = {
   createdAt: string;
 };
 
+export type ParsedObservationResponse = {
+  id?: string;
+  rawTestName: string | null;
+  matchedTestId: string | null;
+  observedAt: string | null;
+  rawValue: string | null;
+  numericValue: number | null;
+  unit: string | null;
+  referenceRange: string | null;
+  status: string | null;
+};
+
 export type UploadReportRequest = {
   file: File;
   reportDate?: string;
@@ -99,6 +111,33 @@ export async function apiRequest<T>(
   return response.json() as Promise<T>;
 }
 
+async function apiCommand(path: string, options: RequestInit = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers
+    },
+    ...options
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = `Request failed with status ${response.status}`;
+    const responseText = await response.text();
+    let message = fallbackMessage;
+
+    if (responseText) {
+      try {
+        const body = JSON.parse(responseText) as { message?: string; error?: string };
+        message = body.message || body.error || fallbackMessage;
+      } catch {
+        message = responseText;
+      }
+    }
+
+    throw new Error(message);
+  }
+}
+
 export function getTests() {
   return apiRequest<TestCatalogResponse[]>("/api/tests");
 }
@@ -123,6 +162,30 @@ export function getReports() {
 export function getReport(reportId: string) {
   return apiRequest<ReportResponse>(
     `/api/reports/${encodeURIComponent(reportId)}`
+  );
+}
+
+export function extractReportText(reportId: string) {
+  return apiCommand(
+    `/api/reports/${encodeURIComponent(reportId)}/extract-text`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function parseReportObservations(reportId: string) {
+  return apiCommand(
+    `/api/reports/${encodeURIComponent(reportId)}/parse-observations`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function getParsedObservations(reportId: string) {
+  return apiRequest<ParsedObservationResponse[]>(
+    `/api/reports/${encodeURIComponent(reportId)}/parsed-observations`
   );
 }
 

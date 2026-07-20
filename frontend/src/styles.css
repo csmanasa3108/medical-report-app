@@ -127,6 +127,33 @@ h1 {
   background: #ffffff;
 }
 
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #216869;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #216869;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-button.secondary {
+  border-color: #c8d2dc;
+  color: #17202a;
+  background: #ffffff;
+}
+
+.action-button:disabled {
+  border-color: #9caab7;
+  color: #ffffff;
+  background: #9caab7;
+  cursor: not-allowed;
+}
+
 .observation-form,
 .metadata-form {
   display: grid;
@@ -386,6 +413,40 @@ h1 {
   font-weight: 700;
 }
 
+.parsed-observations-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #d9e0e7;
+}
+
+.subsection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.subsection-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.parsed-observations-table {
+  min-width: 980px;
+}
+
+.parsed-observations-table td {
+  overflow-wrap: anywhere;
+}
+
 .detail-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -431,6 +492,14 @@ h1 {
 
   .trend-header {
     flex-direction: column;
+  }
+
+  .subsection-header {
+    flex-direction: column;
+  }
+
+  .report-actions {
+    justify-content: flex-start;
   }
 
   .trend-summary {
