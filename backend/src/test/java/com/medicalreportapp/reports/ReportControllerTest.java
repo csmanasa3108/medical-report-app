@@ -34,6 +34,9 @@ class ReportControllerTest {
     @MockitoBean
     private ReportService reportService;
 
+    @MockitoBean
+    private ParsedObservationService parsedObservationService;
+
     @Test
     void createReturnsCreatedReport() throws Exception {
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -226,6 +229,69 @@ class ReportControllerTest {
             .andExpect(jsonPath("$.reportId").value(reportId.toString()))
             .andExpect(jsonPath("$.extractionStatus").value("TEXT_EXTRACTED"))
             .andExpect(jsonPath("$.extractedText").value("Hemoglobin 13.4 g/dL"));
+    }
+
+    @Test
+    void parseObservationsReturnsParsedRows() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID matchedTestId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(parsedObservationService.parse(reportId)).thenReturn(List.of(new ParsedObservationResponse(
+            parsedObservationId,
+            reportId,
+            "Hemoglobin",
+            matchedTestId,
+            LocalDate.parse("2026-07-09"),
+            "12.8",
+            new java.math.BigDecimal("12.8000"),
+            "g/dL",
+            "12.0 - 15.5",
+            "NEEDS_REVIEW",
+            Instant.parse("2026-07-10T14:00:00Z")
+        )));
+
+        mockMvc.perform(post("/api/reports/{reportId}/parse-observations", reportId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(parsedObservationId.toString()))
+            .andExpect(jsonPath("$[0].reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$[0].rawTestName").value("Hemoglobin"))
+            .andExpect(jsonPath("$[0].matchedTestId").value(matchedTestId.toString()))
+            .andExpect(jsonPath("$[0].observedAt").value("2026-07-09"))
+            .andExpect(jsonPath("$[0].rawValue").value("12.8"))
+            .andExpect(jsonPath("$[0].numericValue").value(12.8000))
+            .andExpect(jsonPath("$[0].unit").value("g/dL"))
+            .andExpect(jsonPath("$[0].referenceRange").value("12.0 - 15.5"))
+            .andExpect(jsonPath("$[0].status").value("NEEDS_REVIEW"))
+            .andExpect(jsonPath("$[0].createdAt").value("2026-07-10T14:00:00Z"));
+    }
+
+    @Test
+    void findParsedObservationsReturnsStoredParsedRows() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationService.findByReportId(reportId)).thenReturn(List.of(new ParsedObservationResponse(
+            parsedObservationId,
+            reportId,
+            "Vitamin D",
+            null,
+            LocalDate.parse("2026-07-09"),
+            "24",
+            new java.math.BigDecimal("24.0000"),
+            "ng/mL",
+            "30 - 100",
+            "NEEDS_REVIEW",
+            Instant.parse("2026-07-10T14:00:00Z")
+        )));
+
+        mockMvc.perform(get("/api/reports/{reportId}/parsed-observations", reportId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(parsedObservationId.toString()))
+            .andExpect(jsonPath("$[0].reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$[0].rawTestName").value("Vitamin D"))
+            .andExpect(jsonPath("$[0].matchedTestId").doesNotExist())
+            .andExpect(jsonPath("$[0].status").value("NEEDS_REVIEW"));
     }
 
     @Test

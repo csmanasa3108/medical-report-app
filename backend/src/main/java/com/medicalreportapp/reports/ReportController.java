@@ -21,9 +21,11 @@ import org.springframework.web.multipart.MultipartFile;
 class ReportController {
 
     private final ReportService reportService;
+    private final ParsedObservationService parsedObservationService;
 
-    ReportController(ReportService reportService) {
+    ReportController(ReportService reportService, ParsedObservationService parsedObservationService) {
         this.reportService = reportService;
+        this.parsedObservationService = parsedObservationService;
     }
 
     @PostMapping("/api/reports")
@@ -60,5 +62,15 @@ class ReportController {
     @GetMapping("/api/reports/{reportId}/text")
     public ReportTextResponse findText(@PathVariable UUID reportId) {
         return reportService.findText(reportId);
+    }
+
+    @PostMapping("/api/reports/{reportId}/parse-observations")
+    public List<ParsedObservationResponse> parseObservations(@PathVariable UUID reportId) {
+        return parsedObservationService.parse(reportId);
+    }
+
+    @GetMapping("/api/reports/{reportId}/parsed-observations")
+    public List<ParsedObservationResponse> findParsedObservations(@PathVariable UUID reportId) {
+        return parsedObservationService.findByReportId(reportId);
     }
 }
