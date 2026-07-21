@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  confirmParsedObservation,
   extractReportText,
   getParsedObservations,
   getReport,
@@ -51,6 +52,22 @@ function formatOptionalValue(value: string | number | null | undefined) {
   return value;
 }
 
+function canConfirmParsedObservation(observation: ParsedObservationResponse) {
+  return (
+    observation.status !== "CONFIRMED" &&
+    Boolean(observation.id) &&
+    Boolean(observation.matchedTestId) &&
+    observation.numericValue !== null &&
+    observation.numericValue !== undefined
+  );
+}
+
+function getStatusClassName(status: string | null) {
+  return status === "CONFIRMED"
+    ? "status-badge status-badge-confirmed"
+    : "status-badge";
+}
+
 function ReportDetailPage() {
   const { reportId } = useParams();
   const [report, setReport] = useState<ReportResponse | null>(null);
@@ -61,6 +78,9 @@ function ReportDetailPage() {
   const [isParsedLoading, setIsParsedLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<
     "extract" | "parse" | "refresh" | null
+  >(null);
+  const [confirmingObservationId, setConfirmingObservationId] = useState<
+    string | null
   >(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [parsedErrorMessage, setParsedErrorMessage] = useState("");
@@ -192,7 +212,27 @@ function ReportDetailPage() {
     }
   }
 
-  const isActionRunning = activeAction !== null;
+  async function handleConfirmParsedObservation(parsedObservationId: string) {
+    setConfirmingObservationId(parsedObservationId);
+    setParsedErrorMessage("");
+    setActionMessage("");
+
+    try {
+      await confirmParsedObservation(parsedObservationId);
+      await refreshReportAndParsedObservations();
+      setActionMessage("Parsed observation confirmed.");
+    } catch (error: unknown) {
+      setParsedErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to confirm parsed observation."
+      );
+    } finally {
+      setConfirmingObservationId(null);
+    }
+  }
+
+  const isActionRunning = activeAction !== null || confirmingObservationId !== null;
 
   return (
     <section className="page-section">
@@ -311,23 +351,56 @@ function ReportDetailPage() {
                     <th>unit</th>
                     <th>referenceRange</th>
                     <th>status</th>
+                    <th>actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {parsedObservations.map((observation, index) => (
-                    <tr
-                      key={observation.id ?? `${observation.rawTestName}-${index}`}
-                    >
-                      <td>{formatOptionalValue(observation.rawTestName)}</td>
-                      <td>{formatOptionalValue(observation.matchedTestId)}</td>
-                      <td>{formatOptionalValue(observation.observedAt)}</td>
-                      <td>{formatOptionalValue(observation.rawValue)}</td>
-                      <td>{formatOptionalValue(observation.numericValue)}</td>
-                      <td>{formatOptionalValue(observation.unit)}</td>
-                      <td>{formatOptionalValue(observation.referenceRange)}</td>
-                      <td>{formatOptionalValue(observation.status)}</td>
-                    </tr>
-                  ))}
+                  {parsedObservations.map((observation, index) => {
+                    const rowKey =
+                      observation.id ?? `${observation.rawTestName}-${index}`;
+                    const isConfirmable =
+                      canConfirmParsedObservation(observation);
+                    const isConfirming =
+                      observation.id === confirmingObservationId;
+
+                    return (
+                      <tr
+                        className={
+                          observation.status === "CONFIRMED"
+                            ? "confirmed-observation-row"
+                            : undefined
+                        }
+                        key={rowKey}
+                      >
+                        <td>{formatOptionalValue(observation.rawTestName)}</td>
+                        <td>{formatOptionalValue(observation.matchedTestId)}</td>
+                        <td>{formatOptionalValue(observation.observedAt)}</td>
+                        <td>{formatOptionalValue(observation.rawValue)}</td>
+                        <td>{formatOptionalValue(observation.numericValue)}</td>
+                        <td>{formatOptionalValue(observation.unit)}</td>
+                        <td>{formatOptionalValue(observation.referenceRange)}</td>
+                        <td>
+                          <span className={getStatusClassName(observation.status)}>
+                            {formatOptionalValue(observation.status)}
+                          </span>
+                        </td>
+                        <td>
+                          {isConfirmable && observation.id ? (
+                            <button
+                              className="action-button table-action-button"
+                              type="button"
+                              onClick={() =>
+                                handleConfirmParsedObservation(observation.id!)
+                              }
+                              disabled={isActionRunning}
+                            >
+                              {isConfirming ? "Confirming..." : "Confirm"}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

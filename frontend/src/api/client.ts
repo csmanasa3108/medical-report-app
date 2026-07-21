@@ -189,6 +189,15 @@ export function getParsedObservations(reportId: string) {
   );
 }
 
+export function confirmParsedObservation(parsedObservationId: string) {
+  return apiCommand(
+    `/api/parsed-observations/${encodeURIComponent(parsedObservationId)}/confirm`,
+    {
+      method: "POST"
+    }
+  );
+}
+
 export function createReport(payload: CreateReportRequest) {
   return apiRequest<ReportResponse>("/api/reports", {
     method: "POST",

@@ -440,11 +440,39 @@ h1 {
 }
 
 .parsed-observations-table {
-  min-width: 980px;
+  min-width: 1080px;
 }
 
 .parsed-observations-table td {
   overflow-wrap: anywhere;
+}
+
+.confirmed-observation-row {
+  background: #f6fbf8;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #c8d2dc;
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: #2d3a45;
+  background: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.status-badge-confirmed {
+  border-color: #8ab89a;
+  color: #205932;
+  background: #edf8f0;
+}
+
+.table-action-button {
+  min-width: 88px;
+  padding: 7px 10px;
+  font-size: 0.9rem;
 }
 
 .detail-list {
