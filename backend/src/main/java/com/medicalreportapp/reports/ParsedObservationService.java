@@ -1,9 +1,16 @@
 package com.medicalreportapp.reports;
 
 import com.medicalreportapp.observations.DefaultUserProvider;
+import com.medicalreportapp.observations.CreateLabObservationCommand;
+import com.medicalreportapp.observations.LabObservationResponse;
+import com.medicalreportapp.observations.LabObservationService;
 import com.medicalreportapp.testcatalog.TestCatalogLookupService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,10 +21,15 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 class ParsedObservationService {
 
+    private static final Pattern REFERENCE_RANGE = Pattern.compile(
+        "^\\s*[<>]?(?<low>\\d+(?:\\.\\d+)?)\\s*-\\s*[<>]?(?<high>\\d+(?:\\.\\d+)?).*$"
+    );
+
     private final ReportRepository reportRepository;
     private final ParsedObservationRepository parsedObservationRepository;
     private final ParsedObservationParser parsedObservationParser;
     private final TestCatalogLookupService testCatalogLookupService;
+    private final LabObservationService labObservationService;
     private final DefaultUserProvider defaultUserProvider;
 
     ParsedObservationService(
@@ -25,12 +37,14 @@ class ParsedObservationService {
         ParsedObservationRepository parsedObservationRepository,
         ParsedObservationParser parsedObservationParser,
         TestCatalogLookupService testCatalogLookupService,
+        LabObservationService labObservationService,
         DefaultUserProvider defaultUserProvider
     ) {
         this.reportRepository = reportRepository;
         this.parsedObservationRepository = parsedObservationRepository;
         this.parsedObservationParser = parsedObservationParser;
         this.testCatalogLookupService = testCatalogLookupService;
+        this.labObservationService = labObservationService;
         this.defaultUserProvider = defaultUserProvider;
     }
 
@@ -74,9 +88,84 @@ class ParsedObservationService {
             .toList();
     }
 
+    @Transactional
+    public LabObservationResponse confirm(UUID parsedObservationId) {
+        ParsedObservation parsedObservation = parsedObservationRepository.findById(parsedObservationId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
+        Report report = findReportForDefaultUser(parsedObservation.getReportId());
+
+        if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation is already confirmed");
+        }
+        if (parsedObservation.getMatchedTestId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no matched test");
+        }
+        if (parsedObservation.getNumericValue() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no numeric value");
+        }
+
+        LocalDate observedAt = parsedObservation.getObservedAt() != null
+            ? parsedObservation.getObservedAt()
+            : report.getReportDate();
+        if (observedAt == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no observation date or report date");
+        }
+
+        ReferenceBounds referenceBounds = parseReferenceBounds(parsedObservation.getReferenceRange());
+        LabObservationResponse response = labObservationService.create(new CreateLabObservationCommand(
+            parsedObservation.getMatchedTestId(),
+            observedAt,
+            parsedObservation.getNumericValue(),
+            parsedObservation.getUnit(),
+            referenceBounds.low(),
+            referenceBounds.high(),
+            abnormalFlag(parsedObservation.getNumericValue(), referenceBounds)
+        ));
+
+        parsedObservation.markConfirmed();
+        return response;
+    }
+
     private Report findReportForDefaultUser(UUID reportId) {
         UUID userId = defaultUserProvider.getDefaultUserId();
         return reportRepository.findByIdAndUserId(reportId, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+    }
+
+    private static ReferenceBounds parseReferenceBounds(String referenceRange) {
+        if (!StringUtils.hasText(referenceRange)) {
+            return ReferenceBounds.unknown();
+        }
+
+        Matcher matcher = REFERENCE_RANGE.matcher(referenceRange);
+        if (!matcher.matches()) {
+            return ReferenceBounds.unknown();
+        }
+
+        return new ReferenceBounds(
+            new BigDecimal(matcher.group("low")),
+            new BigDecimal(matcher.group("high"))
+        );
+    }
+
+    private static String abnormalFlag(BigDecimal numericValue, ReferenceBounds referenceBounds) {
+        if (referenceBounds.isUnknown()) {
+            return "unknown";
+        }
+        if (numericValue.compareTo(referenceBounds.low()) < 0 || numericValue.compareTo(referenceBounds.high()) > 0) {
+            return "abnormal";
+        }
+        return "normal";
+    }
+
+    private record ReferenceBounds(BigDecimal low, BigDecimal high) {
+
+        private static ReferenceBounds unknown() {
+            return new ReferenceBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        private boolean isUnknown() {
+            return BigDecimal.ZERO.compareTo(low) == 0 && BigDecimal.ZERO.compareTo(high) == 0;
+        }
     }
 }

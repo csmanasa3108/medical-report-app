@@ -2,12 +2,17 @@ package com.medicalreportapp.reports;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.medicalreportapp.observations.CreateLabObservationCommand;
 import com.medicalreportapp.observations.DefaultUserProvider;
+import com.medicalreportapp.observations.LabObservationResponse;
+import com.medicalreportapp.observations.LabObservationService;
 import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import com.medicalreportapp.testcatalog.TestCatalogMatch;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -36,6 +41,9 @@ class ParsedObservationServiceTest {
     private TestCatalogLookupService testCatalogLookupService;
 
     @Mock
+    private LabObservationService labObservationService;
+
+    @Mock
     private DefaultUserProvider defaultUserProvider;
 
     private ParsedObservationService parsedObservationService;
@@ -47,6 +55,7 @@ class ParsedObservationServiceTest {
             parsedObservationRepository,
             new ParsedObservationParser(),
             testCatalogLookupService,
+            labObservationService,
             defaultUserProvider
         );
     }
@@ -126,6 +135,146 @@ class ParsedObservationServiceTest {
             .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void confirmCreatesLabObservationAndMarksParsedObservationConfirmed() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID labObservationId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
+            labObservationId,
+            testId,
+            "Hemoglobin",
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            new BigDecimal("12.0"),
+            new BigDecimal("15.5"),
+            "normal"
+        ));
+
+        LabObservationResponse response = parsedObservationService.confirm(parsedObservationId);
+
+        ArgumentCaptor<CreateLabObservationCommand> commandCaptor = ArgumentCaptor.forClass(CreateLabObservationCommand.class);
+        verify(labObservationService).create(commandCaptor.capture());
+
+        CreateLabObservationCommand command = commandCaptor.getValue();
+        assertThat(command.testId()).isEqualTo(testId);
+        assertThat(command.observedAt()).isEqualTo(LocalDate.parse("2026-07-08"));
+        assertThat(command.numericValue()).isEqualByComparingTo("12.8");
+        assertThat(command.unit()).isEqualTo("g/dL");
+        assertThat(command.referenceLow()).isEqualByComparingTo("12.0");
+        assertThat(command.referenceHigh()).isEqualByComparingTo("15.5");
+        assertThat(command.abnormalFlag()).isEqualTo("normal");
+        assertThat(parsedObservation.getStatus()).isEqualTo(ParsedObservationStatus.CONFIRMED);
+        assertThat(response.id()).isEqualTo(labObservationId);
+    }
+
+    @Test
+    void confirmUsesReportDateWhenParsedObservationDateIsMissing() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            null,
+            new BigDecimal("12.8")
+        );
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
+            UUID.randomUUID(),
+            testId,
+            "Hemoglobin",
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            new BigDecimal("12.0"),
+            new BigDecimal("15.5"),
+            "normal"
+        ));
+
+        parsedObservationService.confirm(parsedObservationId);
+
+        ArgumentCaptor<CreateLabObservationCommand> commandCaptor = ArgumentCaptor.forClass(CreateLabObservationCommand.class);
+        verify(labObservationService).create(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().observedAt()).isEqualTo(LocalDate.parse("2026-07-09"));
+    }
+
+    @Test
+    void confirmRejectsParsedObservationWithoutMatchedTest() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation(
+            parsedObservationId,
+            reportId,
+            null,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        )));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+
+        assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void confirmRejectsParsedObservationWithoutNumericValue() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-08"),
+            null
+        )));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+
+        assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void confirmReturnsNotFoundForUnknownParsedObservation() {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
     private static Report report(UUID reportId, UUID userId) {
         return new Report(
             reportId,
@@ -138,6 +287,27 @@ class ParsedObservationServiceTest {
             null,
             null,
             ReportStatus.CREATED
+        );
+    }
+
+    private static ParsedObservation parsedObservation(
+        UUID parsedObservationId,
+        UUID reportId,
+        UUID matchedTestId,
+        LocalDate observedAt,
+        BigDecimal numericValue
+    ) {
+        return new ParsedObservation(
+            parsedObservationId,
+            reportId,
+            "Hemoglobin",
+            matchedTestId,
+            observedAt,
+            numericValue == null ? null : numericValue.toPlainString(),
+            numericValue,
+            "g/dL",
+            "12.0 - 15.5",
+            ParsedObservationStatus.NEEDS_REVIEW
         );
     }
 }

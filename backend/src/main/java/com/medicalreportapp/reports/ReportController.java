@@ -1,5 +1,6 @@
 package com.medicalreportapp.reports;
 
+import com.medicalreportapp.observations.LabObservationResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -72,5 +73,10 @@ class ReportController {
     @GetMapping("/api/reports/{reportId}/parsed-observations")
     public List<ParsedObservationResponse> findParsedObservations(@PathVariable UUID reportId) {
         return parsedObservationService.findByReportId(reportId);
+    }
+
+    @PostMapping("/api/parsed-observations/{parsedObservationId}/confirm")
+    public LabObservationResponse confirmParsedObservation(@PathVariable UUID parsedObservationId) {
+        return parsedObservationService.confirm(parsedObservationId);
     }
 }

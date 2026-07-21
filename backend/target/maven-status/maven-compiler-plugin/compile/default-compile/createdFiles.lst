@@ -10,10 +10,12 @@ com/medicalreportapp/reports/ParsedObservationRepository.class
 com/medicalreportapp/testcatalog/TestCatalogMatch.class
 com/medicalreportapp/reports/ParsedObservationResponse.class
 com/medicalreportapp/health/HealthController.class
+com/medicalreportapp/observations/CreateLabObservationCommand.class
 com/medicalreportapp/reports/ReportService.class
 com/medicalreportapp/reports/ParsedObservationParser.class
 com/medicalreportapp/reports/ReportTextResponse.class
 com/medicalreportapp/testcatalog/TestCatalogRepository.class
+com/medicalreportapp/reports/ParsedObservationService$ReferenceBounds.class
 com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/reports/ParsedObservation.class
 com/medicalreportapp/reports/ReportStatus.class

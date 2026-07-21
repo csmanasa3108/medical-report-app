@@ -122,4 +122,8 @@ class ParsedObservation {
     Instant getCreatedAt() {
         return createdAt;
     }
+
+    void markConfirmed() {
+        this.status = ParsedObservationStatus.CONFIRMED;
+    }
 }

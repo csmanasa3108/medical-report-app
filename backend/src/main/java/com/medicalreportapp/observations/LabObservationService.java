@@ -10,10 +10,11 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-class LabObservationService {
+public class LabObservationService {
 
     private final LabObservationRepository labObservationRepository;
     private final TestCatalogLookupService testCatalogLookupService;
@@ -31,19 +32,28 @@ class LabObservationService {
 
     @Transactional
     public LabObservationResponse create(CreateLabObservationRequest request) {
-        TestCatalogLookup test = testCatalogLookupService.findById(request.testId())
+        return create(CreateLabObservationCommand.from(request));
+    }
+
+    @Transactional
+    public LabObservationResponse create(CreateLabObservationCommand command) {
+        TestCatalogLookup test = testCatalogLookupService.findById(command.testId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Test catalog entry not found"));
+        String unit = StringUtils.hasText(command.unit()) ? command.unit() : test.defaultUnit();
+        if (!StringUtils.hasText(unit)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lab observation has no unit");
+        }
 
         LabObservation observation = new LabObservation(
             UUID.randomUUID(),
             defaultUserProvider.getDefaultUserId(),
             test.id(),
-            request.observedAt(),
-            request.numericValue(),
-            request.unit(),
-            request.referenceLow(),
-            request.referenceHigh(),
-            request.abnormalFlag()
+            command.observedAt(),
+            command.numericValue(),
+            unit,
+            command.referenceLow(),
+            command.referenceHigh(),
+            command.abnormalFlag()
         );
 
         LabObservation savedObservation = labObservationRepository.save(observation);

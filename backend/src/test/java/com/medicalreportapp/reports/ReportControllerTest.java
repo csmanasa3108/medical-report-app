@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.medicalreportapp.observations.LabObservationResponse;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -292,6 +294,49 @@ class ReportControllerTest {
             .andExpect(jsonPath("$[0].rawTestName").value("Vitamin D"))
             .andExpect(jsonPath("$[0].matchedTestId").doesNotExist())
             .andExpect(jsonPath("$[0].status").value("NEEDS_REVIEW"));
+    }
+
+    @Test
+    void confirmParsedObservationReturnsCreatedLabObservation() throws Exception {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID labObservationId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(parsedObservationService.confirm(parsedObservationId)).thenReturn(new LabObservationResponse(
+            labObservationId,
+            testId,
+            "Hemoglobin",
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            new BigDecimal("12.0"),
+            new BigDecimal("15.5"),
+            "normal"
+        ));
+
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/confirm", parsedObservationId))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.id").value(labObservationId.toString()))
+            .andExpect(jsonPath("$.testId").value(testId.toString()))
+            .andExpect(jsonPath("$.testName").value("Hemoglobin"))
+            .andExpect(jsonPath("$.observedAt").value("2026-07-09"))
+            .andExpect(jsonPath("$.numericValue").value(12.8))
+            .andExpect(jsonPath("$.unit").value("g/dL"))
+            .andExpect(jsonPath("$.referenceLow").value(12.0))
+            .andExpect(jsonPath("$.referenceHigh").value(15.5))
+            .andExpect(jsonPath("$.abnormalFlag").value("normal"));
+    }
+
+    @Test
+    void confirmParsedObservationReturnsBadRequestForInvalidParsedObservation() throws Exception {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationService.confirm(parsedObservationId))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no matched test"));
+
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/confirm", parsedObservationId))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

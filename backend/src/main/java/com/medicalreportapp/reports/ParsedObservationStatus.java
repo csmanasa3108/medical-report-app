@@ -1,5 +1,6 @@
 package com.medicalreportapp.reports;
 
 enum ParsedObservationStatus {
-    NEEDS_REVIEW
+    NEEDS_REVIEW,
+    CONFIRMED
 }
