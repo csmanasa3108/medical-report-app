@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -294,6 +295,73 @@ class ReportControllerTest {
             .andExpect(jsonPath("$[0].rawTestName").value("Vitamin D"))
             .andExpect(jsonPath("$[0].matchedTestId").doesNotExist())
             .andExpect(jsonPath("$[0].status").value("NEEDS_REVIEW"));
+    }
+
+    @Test
+    void updateParsedObservationReturnsUpdatedParsedRow() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID matchedTestId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(parsedObservationService.update(any(UUID.class), any(UpdateParsedObservationRequest.class)))
+            .thenReturn(new ParsedObservationResponse(
+                parsedObservationId,
+                reportId,
+                "White Blood Cell Count",
+                matchedTestId,
+                LocalDate.parse("2026-07-10"),
+                "6.4",
+                new BigDecimal("6.4000"),
+                "10^3/uL",
+                "4.0 - 11.0",
+                "NEEDS_REVIEW",
+                Instant.parse("2026-07-10T14:00:00Z")
+            ));
+
+        mockMvc.perform(patch("/api/parsed-observations/{parsedObservationId}", parsedObservationId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "rawTestName": "White Blood Cell Count",
+                      "matchedTestId": "11111111-1111-1111-1111-111111111111",
+                      "observedAt": "2026-07-10",
+                      "rawValue": "6.4",
+                      "numericValue": 6.4,
+                      "unit": "10^3/uL",
+                      "referenceRange": "4.0 - 11.0"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.id").value(parsedObservationId.toString()))
+            .andExpect(jsonPath("$.reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$.rawTestName").value("White Blood Cell Count"))
+            .andExpect(jsonPath("$.matchedTestId").value(matchedTestId.toString()))
+            .andExpect(jsonPath("$.observedAt").value("2026-07-10"))
+            .andExpect(jsonPath("$.rawValue").value("6.4"))
+            .andExpect(jsonPath("$.numericValue").value(6.4000))
+            .andExpect(jsonPath("$.unit").value("10^3/uL"))
+            .andExpect(jsonPath("$.referenceRange").value("4.0 - 11.0"))
+            .andExpect(jsonPath("$.status").value("NEEDS_REVIEW"));
+
+        verify(parsedObservationService).update(any(UUID.class), any(UpdateParsedObservationRequest.class));
+    }
+
+    @Test
+    void updateParsedObservationReturnsBadRequestForConfirmedRow() throws Exception {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationService.update(any(UUID.class), any(UpdateParsedObservationRequest.class)))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Confirmed parsed observations cannot be edited"));
+
+        mockMvc.perform(patch("/api/parsed-observations/{parsedObservationId}", parsedObservationId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "rawValue": "13.2"
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

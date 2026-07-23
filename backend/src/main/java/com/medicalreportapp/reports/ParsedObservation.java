@@ -123,6 +123,34 @@ class ParsedObservation {
         return createdAt;
     }
 
+    void setRawTestName(String rawTestName) {
+        this.rawTestName = rawTestName;
+    }
+
+    void setMatchedTestId(UUID matchedTestId) {
+        this.matchedTestId = matchedTestId;
+    }
+
+    void setObservedAt(LocalDate observedAt) {
+        this.observedAt = observedAt;
+    }
+
+    void setRawValue(String rawValue) {
+        this.rawValue = rawValue;
+    }
+
+    void setNumericValue(BigDecimal numericValue) {
+        this.numericValue = numericValue;
+    }
+
+    void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    void setReferenceRange(String referenceRange) {
+        this.referenceRange = referenceRange;
+    }
+
     void markConfirmed() {
         this.status = ParsedObservationStatus.CONFIRMED;
     }

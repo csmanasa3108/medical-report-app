@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -73,6 +74,14 @@ class ReportController {
     @GetMapping("/api/reports/{reportId}/parsed-observations")
     public List<ParsedObservationResponse> findParsedObservations(@PathVariable UUID reportId) {
         return parsedObservationService.findByReportId(reportId);
+    }
+
+    @PatchMapping("/api/parsed-observations/{parsedObservationId}")
+    public ParsedObservationResponse updateParsedObservation(
+        @PathVariable UUID parsedObservationId,
+        @Valid @RequestBody UpdateParsedObservationRequest request
+    ) {
+        return parsedObservationService.update(parsedObservationId, request);
     }
 
     @PostMapping("/api/parsed-observations/{parsedObservationId}/confirm")

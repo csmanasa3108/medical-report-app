@@ -89,6 +89,47 @@ class ParsedObservationService {
     }
 
     @Transactional
+    public ParsedObservationResponse update(UUID parsedObservationId, UpdateParsedObservationRequest request) {
+        ParsedObservation parsedObservation = parsedObservationRepository.findById(parsedObservationId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
+        findReportForDefaultUser(parsedObservation.getReportId());
+
+        if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Confirmed parsed observations cannot be edited");
+        }
+
+        if (request.hasRawTestName()) {
+            if (!StringUtils.hasText(request.rawTestName())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raw test name is required");
+            }
+            parsedObservation.setRawTestName(request.rawTestName());
+        }
+        if (request.hasMatchedTestId()) {
+            if (request.matchedTestId() != null && testCatalogLookupService.findById(request.matchedTestId()).isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Matched test does not exist");
+            }
+            parsedObservation.setMatchedTestId(request.matchedTestId());
+        }
+        if (request.hasObservedAt()) {
+            parsedObservation.setObservedAt(request.observedAt());
+        }
+        if (request.hasRawValue()) {
+            parsedObservation.setRawValue(request.rawValue());
+        }
+        if (request.hasNumericValue()) {
+            parsedObservation.setNumericValue(request.numericValue());
+        }
+        if (request.hasUnit()) {
+            parsedObservation.setUnit(request.unit());
+        }
+        if (request.hasReferenceRange()) {
+            parsedObservation.setReferenceRange(request.referenceRange());
+        }
+
+        return ParsedObservationResponse.from(parsedObservation);
+    }
+
+    @Transactional
     public LabObservationResponse confirm(UUID parsedObservationId) {
         ParsedObservation parsedObservation = parsedObservationRepository.findById(parsedObservationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));

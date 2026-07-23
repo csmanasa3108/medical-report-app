@@ -10,6 +10,7 @@ import com.medicalreportapp.observations.CreateLabObservationCommand;
 import com.medicalreportapp.observations.DefaultUserProvider;
 import com.medicalreportapp.observations.LabObservationResponse;
 import com.medicalreportapp.observations.LabObservationService;
+import com.medicalreportapp.testcatalog.TestCatalogLookup;
 import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import com.medicalreportapp.testcatalog.TestCatalogMatch;
 import java.math.BigDecimal;
@@ -133,6 +134,206 @@ class ParsedObservationServiceTest {
             .isInstanceOf(ResponseStatusException.class)
             .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
             .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void updateChangesEditableFieldsAndKeepsNeedsReviewStatus() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID originalTestId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID matchedTestId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            originalTestId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setRawTestName("White Blood Cell Count");
+        request.setMatchedTestId(matchedTestId);
+        request.setObservedAt(LocalDate.parse("2026-07-10"));
+        request.setRawValue("6.4");
+        request.setNumericValue(new BigDecimal("6.4"));
+        request.setUnit("10^3/uL");
+        request.setReferenceRange("4.0 - 11.0");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(testCatalogLookupService.findById(matchedTestId))
+            .thenReturn(Optional.of(new TestCatalogLookup(matchedTestId, "WBC", "10^3/uL")));
+
+        ParsedObservationResponse response = parsedObservationService.update(parsedObservationId, request);
+
+        assertThat(response.rawTestName()).isEqualTo("White Blood Cell Count");
+        assertThat(response.matchedTestId()).isEqualTo(matchedTestId);
+        assertThat(response.observedAt()).isEqualTo(LocalDate.parse("2026-07-10"));
+        assertThat(response.rawValue()).isEqualTo("6.4");
+        assertThat(response.numericValue()).isEqualByComparingTo("6.4");
+        assertThat(response.unit()).isEqualTo("10^3/uL");
+        assertThat(response.referenceRange()).isEqualTo("4.0 - 11.0");
+        assertThat(response.status()).isEqualTo("NEEDS_REVIEW");
+        assertThat(parsedObservation.getStatus()).isEqualTo(ParsedObservationStatus.NEEDS_REVIEW);
+    }
+
+    @Test
+    void updateAllowsClearingNullableFields() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setMatchedTestId(null);
+        request.setObservedAt(null);
+        request.setRawValue(null);
+        request.setNumericValue(null);
+        request.setUnit(null);
+        request.setReferenceRange(null);
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+
+        ParsedObservationResponse response = parsedObservationService.update(parsedObservationId, request);
+
+        assertThat(response.rawTestName()).isEqualTo("Hemoglobin");
+        assertThat(response.matchedTestId()).isNull();
+        assertThat(response.observedAt()).isNull();
+        assertThat(response.rawValue()).isNull();
+        assertThat(response.numericValue()).isNull();
+        assertThat(response.unit()).isNull();
+        assertThat(response.referenceRange()).isNull();
+    }
+
+    @Test
+    void updateRejectsUnknownParsedObservation() {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setRawValue("6.4");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> parsedObservationService.update(parsedObservationId, request))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void updateRejectsConfirmedParsedObservation() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        parsedObservation.markConfirmed();
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setRawValue("13.2");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+
+        assertThatThrownBy(() -> parsedObservationService.update(parsedObservationId, request))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void updateRejectsUnknownMatchedTest() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID matchedTestId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            null,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setMatchedTestId(matchedTestId);
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(testCatalogLookupService.findById(matchedTestId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> parsedObservationService.update(parsedObservationId, request))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void confirmUsesEditedParsedObservationValues() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID originalTestId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID matchedTestId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            originalTestId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        UpdateParsedObservationRequest request = new UpdateParsedObservationRequest();
+        request.setMatchedTestId(matchedTestId);
+        request.setObservedAt(LocalDate.parse("2026-07-10"));
+        request.setRawValue("6.4");
+        request.setNumericValue(new BigDecimal("6.4"));
+        request.setUnit("10^3/uL");
+        request.setReferenceRange("4.0 - 11.0");
+
+        when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(testCatalogLookupService.findById(matchedTestId))
+            .thenReturn(Optional.of(new TestCatalogLookup(matchedTestId, "WBC", "10^3/uL")));
+        when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
+            UUID.randomUUID(),
+            matchedTestId,
+            "WBC",
+            LocalDate.parse("2026-07-10"),
+            new BigDecimal("6.4"),
+            "10^3/uL",
+            new BigDecimal("4.0"),
+            new BigDecimal("11.0"),
+            "normal"
+        ));
+
+        parsedObservationService.update(parsedObservationId, request);
+        parsedObservationService.confirm(parsedObservationId);
+
+        ArgumentCaptor<CreateLabObservationCommand> commandCaptor = ArgumentCaptor.forClass(CreateLabObservationCommand.class);
+        verify(labObservationService).create(commandCaptor.capture());
+        CreateLabObservationCommand command = commandCaptor.getValue();
+        assertThat(command.testId()).isEqualTo(matchedTestId);
+        assertThat(command.observedAt()).isEqualTo(LocalDate.parse("2026-07-10"));
+        assertThat(command.numericValue()).isEqualByComparingTo("6.4");
+        assertThat(command.unit()).isEqualTo("10^3/uL");
+        assertThat(command.referenceLow()).isEqualByComparingTo("4.0");
+        assertThat(command.referenceHigh()).isEqualByComparingTo("11.0");
+        assertThat(command.abnormalFlag()).isEqualTo("normal");
     }
 
     @Test
