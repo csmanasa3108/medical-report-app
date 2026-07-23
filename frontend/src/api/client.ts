@@ -73,6 +73,16 @@ export type ParsedObservationResponse = {
   status: string | null;
 };
 
+export type UpdateParsedObservationRequest = {
+  rawTestName: string | null;
+  matchedTestId: string | null;
+  observedAt: string | null;
+  rawValue: string | null;
+  numericValue: number | null;
+  unit: string | null;
+  referenceRange: string | null;
+};
+
 export type UploadReportRequest = {
   file: File;
   reportDate?: string;
@@ -194,6 +204,19 @@ export function confirmParsedObservation(parsedObservationId: string) {
     `/api/parsed-observations/${encodeURIComponent(parsedObservationId)}/confirm`,
     {
       method: "POST"
+    }
+  );
+}
+
+export function updateParsedObservation(
+  parsedObservationId: string,
+  payload: UpdateParsedObservationRequest
+) {
+  return apiCommand(
+    `/api/parsed-observations/${encodeURIComponent(parsedObservationId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload)
     }
   );
 }

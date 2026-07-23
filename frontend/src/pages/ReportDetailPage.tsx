@@ -5,10 +5,24 @@ import {
   extractReportText,
   getParsedObservations,
   getReport,
+  getTests,
   parseReportObservations,
   ParsedObservationResponse,
-  ReportResponse
+  ReportResponse,
+  TestCatalogResponse,
+  updateParsedObservation,
+  UpdateParsedObservationRequest
 } from "../api/client";
+
+type ParsedObservationEditForm = {
+  rawTestName: string;
+  matchedTestId: string;
+  observedAt: string;
+  rawValue: string;
+  numericValue: string;
+  unit: string;
+  referenceRange: string;
+};
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -68,12 +82,57 @@ function getStatusClassName(status: string | null) {
     : "status-badge";
 }
 
+function toEditForm(
+  observation: ParsedObservationResponse
+): ParsedObservationEditForm {
+  return {
+    rawTestName: observation.rawTestName ?? "",
+    matchedTestId: observation.matchedTestId ?? "",
+    observedAt: observation.observedAt ?? "",
+    rawValue: observation.rawValue ?? "",
+    numericValue:
+      observation.numericValue === null || observation.numericValue === undefined
+        ? ""
+        : String(observation.numericValue),
+    unit: observation.unit ?? "",
+    referenceRange: observation.referenceRange ?? ""
+  };
+}
+
+function blankToNull(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
+}
+
+function buildUpdatePayload(
+  form: ParsedObservationEditForm
+): UpdateParsedObservationRequest | null {
+  const numericValue =
+    form.numericValue.trim() === "" ? null : Number(form.numericValue);
+
+  if (numericValue !== null && Number.isNaN(numericValue)) {
+    return null;
+  }
+
+  return {
+    rawTestName: blankToNull(form.rawTestName),
+    matchedTestId: blankToNull(form.matchedTestId),
+    observedAt: blankToNull(form.observedAt),
+    rawValue: blankToNull(form.rawValue),
+    numericValue,
+    unit: blankToNull(form.unit),
+    referenceRange: blankToNull(form.referenceRange)
+  };
+}
+
 function ReportDetailPage() {
   const { reportId } = useParams();
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [parsedObservations, setParsedObservations] = useState<
     ParsedObservationResponse[]
   >([]);
+  const [tests, setTests] = useState<TestCatalogResponse[]>([]);
+  const [isTestsLoading, setIsTestsLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isParsedLoading, setIsParsedLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<
@@ -82,6 +141,21 @@ function ReportDetailPage() {
   const [confirmingObservationId, setConfirmingObservationId] = useState<
     string | null
   >(null);
+  const [editingObservationId, setEditingObservationId] = useState<string | null>(
+    null
+  );
+  const [savingObservationId, setSavingObservationId] = useState<string | null>(
+    null
+  );
+  const [editForm, setEditForm] = useState<ParsedObservationEditForm>({
+    rawTestName: "",
+    matchedTestId: "",
+    observedAt: "",
+    rawValue: "",
+    numericValue: "",
+    unit: "",
+    referenceRange: ""
+  });
   const [errorMessage, setErrorMessage] = useState("");
   const [parsedErrorMessage, setParsedErrorMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
@@ -131,6 +205,39 @@ function ReportDetailPage() {
     };
   }, [reportId]);
 
+  useEffect(() => {
+    let isCurrent = true;
+
+    setIsTestsLoading(true);
+
+    getTests()
+      .then((testCatalog) => {
+        if (isCurrent) {
+          setTests(testCatalog);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setParsedErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load the test catalog."
+        );
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsTestsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
   async function refreshReportAndParsedObservations() {
     if (!reportId) {
       return;
@@ -143,6 +250,61 @@ function ReportDetailPage() {
 
     setReport(reportResponse);
     setParsedObservations(parsedObservationList);
+  }
+
+  function handleEditParsedObservation(observation: ParsedObservationResponse) {
+    if (!observation.id || observation.status === "CONFIRMED") {
+      return;
+    }
+
+    setParsedErrorMessage("");
+    setActionMessage("");
+    setEditingObservationId(observation.id);
+    setEditForm(toEditForm(observation));
+  }
+
+  function handleCancelEdit() {
+    setEditingObservationId(null);
+    setParsedErrorMessage("");
+  }
+
+  function updateEditField(
+    field: keyof ParsedObservationEditForm,
+    value: string
+  ) {
+    setEditForm((currentForm) => ({
+      ...currentForm,
+      [field]: value
+    }));
+  }
+
+  async function handleSaveParsedObservation(parsedObservationId: string) {
+    const payload = buildUpdatePayload(editForm);
+
+    setParsedErrorMessage("");
+    setActionMessage("");
+
+    if (!payload) {
+      setParsedErrorMessage("Numeric value must be a valid number.");
+      return;
+    }
+
+    setSavingObservationId(parsedObservationId);
+
+    try {
+      await updateParsedObservation(parsedObservationId, payload);
+      await refreshReportAndParsedObservations();
+      setEditingObservationId(null);
+      setActionMessage("Parsed observation updated.");
+    } catch (error: unknown) {
+      setParsedErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update parsed observation."
+      );
+    } finally {
+      setSavingObservationId(null);
+    }
   }
 
   async function handleExtractText() {
@@ -232,7 +394,10 @@ function ReportDetailPage() {
     }
   }
 
-  const isActionRunning = activeAction !== null || confirmingObservationId !== null;
+  const isActionRunning =
+    activeAction !== null ||
+    confirmingObservationId !== null ||
+    savingObservationId !== null;
 
   return (
     <section className="page-section">
@@ -362,41 +527,195 @@ function ReportDetailPage() {
                       canConfirmParsedObservation(observation);
                     const isConfirming =
                       observation.id === confirmingObservationId;
+                    const isConfirmed = observation.status === "CONFIRMED";
+                    const isEditing = observation.id === editingObservationId;
+                    const canEdit = Boolean(observation.id) && !isConfirmed;
+                    const isSaving = observation.id === savingObservationId;
+                    const selectedMatchedTestExists =
+                      editForm.matchedTestId === "" ||
+                      tests.some((test) => test.id === editForm.matchedTestId);
 
                     return (
                       <tr
                         className={
-                          observation.status === "CONFIRMED"
+                          isConfirmed
                             ? "confirmed-observation-row"
                             : undefined
                         }
                         key={rowKey}
                       >
-                        <td>{formatOptionalValue(observation.rawTestName)}</td>
-                        <td>{formatOptionalValue(observation.matchedTestId)}</td>
-                        <td>{formatOptionalValue(observation.observedAt)}</td>
-                        <td>{formatOptionalValue(observation.rawValue)}</td>
-                        <td>{formatOptionalValue(observation.numericValue)}</td>
-                        <td>{formatOptionalValue(observation.unit)}</td>
-                        <td>{formatOptionalValue(observation.referenceRange)}</td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="text"
+                              value={editForm.rawTestName}
+                              onChange={(event) =>
+                                updateEditField("rawTestName", event.target.value)
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.rawTestName)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <select
+                              className="table-input"
+                              value={editForm.matchedTestId}
+                              onChange={(event) =>
+                                updateEditField("matchedTestId", event.target.value)
+                              }
+                              disabled={isTestsLoading}
+                            >
+                              <option value="">No matched test</option>
+                              {!selectedMatchedTestExists ? (
+                                <option value={editForm.matchedTestId}>
+                                  Current: {editForm.matchedTestId}
+                                </option>
+                              ) : null}
+                              {tests.map((test) => (
+                                <option key={test.id} value={test.id}>
+                                  {test.displayName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            formatOptionalValue(observation.matchedTestId)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="date"
+                              value={editForm.observedAt}
+                              onChange={(event) =>
+                                updateEditField("observedAt", event.target.value)
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.observedAt)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="text"
+                              value={editForm.rawValue}
+                              onChange={(event) =>
+                                updateEditField("rawValue", event.target.value)
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.rawValue)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="number"
+                              step="any"
+                              value={editForm.numericValue}
+                              onChange={(event) =>
+                                updateEditField("numericValue", event.target.value)
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.numericValue)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="text"
+                              value={editForm.unit}
+                              onChange={(event) =>
+                                updateEditField("unit", event.target.value)
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.unit)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className="table-input"
+                              type="text"
+                              value={editForm.referenceRange}
+                              onChange={(event) =>
+                                updateEditField(
+                                  "referenceRange",
+                                  event.target.value
+                                )
+                              }
+                            />
+                          ) : (
+                            formatOptionalValue(observation.referenceRange)
+                          )}
+                        </td>
                         <td>
                           <span className={getStatusClassName(observation.status)}>
                             {formatOptionalValue(observation.status)}
                           </span>
                         </td>
                         <td>
-                          {isConfirmable && observation.id ? (
-                            <button
-                              className="action-button table-action-button"
-                              type="button"
-                              onClick={() =>
-                                handleConfirmParsedObservation(observation.id!)
-                              }
-                              disabled={isActionRunning}
-                            >
-                              {isConfirming ? "Confirming..." : "Confirm"}
-                            </button>
-                          ) : null}
+                          {isEditing && observation.id ? (
+                            <div className="table-action-group">
+                              <button
+                                className="action-button table-action-button"
+                                type="button"
+                                onClick={() =>
+                                  handleSaveParsedObservation(observation.id!)
+                                }
+                                disabled={isActionRunning}
+                              >
+                                {isSaving ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                className="action-button secondary table-action-button"
+                                type="button"
+                                onClick={handleCancelEdit}
+                                disabled={isActionRunning}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="table-action-group">
+                              {canEdit ? (
+                                <button
+                                  className="action-button secondary table-action-button"
+                                  type="button"
+                                  onClick={() =>
+                                    handleEditParsedObservation(observation)
+                                  }
+                                  disabled={
+                                    isActionRunning ||
+                                    editingObservationId !== null
+                                  }
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
+                              {isConfirmable && observation.id ? (
+                                <button
+                                  className="action-button table-action-button"
+                                  type="button"
+                                  onClick={() =>
+                                    handleConfirmParsedObservation(observation.id!)
+                                  }
+                                  disabled={isActionRunning}
+                                >
+                                  {isConfirming ? "Confirming..." : "Confirm"}
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

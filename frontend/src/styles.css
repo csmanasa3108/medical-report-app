@@ -447,6 +447,23 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.table-input {
+  width: 100%;
+  min-width: 120px;
+  border: 1px solid #c8d2dc;
+  border-radius: 6px;
+  padding: 7px 8px;
+  color: #17202a;
+  background: #ffffff;
+  font: inherit;
+}
+
+.table-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .confirmed-observation-row {
   background: #f6fbf8;
 }
