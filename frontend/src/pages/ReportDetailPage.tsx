@@ -82,6 +82,17 @@ function getStatusClassName(status: string | null) {
     : "status-badge";
 }
 
+function findMatchedTest(
+  tests: TestCatalogResponse[],
+  matchedTestId: string | null
+) {
+  if (!matchedTestId) {
+    return undefined;
+  }
+
+  return tests.find((test) => test.id === matchedTestId);
+}
+
 function toEditForm(
   observation: ParsedObservationResponse
 ): ParsedObservationEditForm {
@@ -508,21 +519,25 @@ function ReportDetailPage() {
               <table className="reports-table parsed-observations-table">
                 <thead>
                   <tr>
-                    <th>rawTestName</th>
-                    <th>matchedTestId</th>
-                    <th>observedAt</th>
-                    <th>rawValue</th>
-                    <th>numericValue</th>
-                    <th>unit</th>
-                    <th>referenceRange</th>
-                    <th>status</th>
-                    <th>actions</th>
+                    <th>Raw test</th>
+                    <th>Matched test</th>
+                    <th>Observed</th>
+                    <th>Raw value</th>
+                    <th>Numeric value</th>
+                    <th>Unit</th>
+                    <th>Reference range</th>
+                    <th>Status</th>
+                    <th className="actions-column">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {parsedObservations.map((observation, index) => {
                     const rowKey =
                       observation.id ?? `${observation.rawTestName}-${index}`;
+                    const matchedTest = findMatchedTest(
+                      tests,
+                      observation.matchedTestId
+                    );
                     const isConfirmable =
                       canConfirmParsedObservation(observation);
                     const isConfirming =
@@ -580,8 +595,23 @@ function ReportDetailPage() {
                                 </option>
                               ))}
                             </select>
+                          ) : observation.matchedTestId ? (
+                            <span
+                              className="matched-test-cell"
+                              title={observation.matchedTestId}
+                            >
+                              <span>
+                                {matchedTest?.displayName ??
+                                  observation.matchedTestId}
+                              </span>
+                              {matchedTest ? (
+                                <span className="muted-id">
+                                  {observation.matchedTestId}
+                                </span>
+                              ) : null}
+                            </span>
                           ) : (
-                            formatOptionalValue(observation.matchedTestId)
+                            "Not provided"
                           )}
                         </td>
                         <td>
@@ -663,7 +693,7 @@ function ReportDetailPage() {
                             {formatOptionalValue(observation.status)}
                           </span>
                         </td>
-                        <td>
+                        <td className="actions-column">
                           {isEditing && observation.id ? (
                             <div className="table-action-group">
                               <button

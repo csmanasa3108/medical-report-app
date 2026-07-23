@@ -382,6 +382,8 @@ h1 {
 
 .table-scroll {
   overflow-x: auto;
+  border: 1px solid #d9e0e7;
+  border-radius: 8px;
 }
 
 .reports-table {
@@ -440,11 +442,50 @@ h1 {
 }
 
 .parsed-observations-table {
-  min-width: 1080px;
+  min-width: 1180px;
 }
 
 .parsed-observations-table td {
   overflow-wrap: anywhere;
+}
+
+.parsed-observations-table th {
+  white-space: nowrap;
+}
+
+.parsed-observations-table th.actions-column,
+.parsed-observations-table td.actions-column {
+  position: sticky;
+  right: 0;
+  min-width: 156px;
+  background: #ffffff;
+  box-shadow: -1px 0 0 #d9e0e7;
+}
+
+.parsed-observations-table th.actions-column {
+  z-index: 2;
+  background: #fbfcfd;
+}
+
+.parsed-observations-table td.actions-column {
+  z-index: 1;
+}
+
+.confirmed-observation-row td.actions-column {
+  background: #f6fbf8;
+}
+
+.matched-test-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.muted-id {
+  color: #52616f;
+  font-size: 0.78rem;
+  font-weight: 400;
 }
 
 .table-input {
@@ -459,8 +500,7 @@ h1 {
 }
 
 .table-action-group {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
 }
 
@@ -487,8 +527,10 @@ h1 {
 }
 
 .table-action-button {
-  min-width: 88px;
-  padding: 7px 10px;
+  width: 100%;
+  min-width: 112px;
+  min-height: 38px;
+  padding: 8px 12px;
   font-size: 0.9rem;
 }
 
