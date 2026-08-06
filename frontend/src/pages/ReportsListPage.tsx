@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getReports, ReportResponse } from "../api/client";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { deleteReport, getReports, ReportResponse } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
+
+type ReportsLocationState = {
+  successMessage?: string;
+};
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -38,9 +42,13 @@ function formatDateTime(value: string) {
 }
 
 function ReportsListPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<ReportResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -71,6 +79,44 @@ function ReportsListPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const state = location.state as ReportsLocationState | null;
+
+    if (!state?.successMessage) {
+      return;
+    }
+
+    setSuccessMessage(state.successMessage);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  async function handleDeleteReport(reportId: string) {
+    const confirmed = window.confirm(
+      "Delete this report? This cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingReportId(reportId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await deleteReport(reportId);
+      const reportList = await getReports();
+      setReports(reportList);
+      setSuccessMessage("Report deleted.");
+    } catch (error: unknown) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to delete report."
+      );
+    } finally {
+      setDeletingReportId(null);
+    }
+  }
+
   return (
     <section className="page-section">
       <div className="section-header">
@@ -89,6 +135,12 @@ function ReportsListPage() {
 
       {isLoading ? <p className="status-message">Loading reports...</p> : null}
 
+      {!isLoading && successMessage ? (
+        <p className="status-message success-message" role="status">
+          {successMessage}
+        </p>
+      ) : null}
+
       {!isLoading && errorMessage ? (
         <p className="status-message error-message" role="alert">
           {errorMessage}
@@ -99,7 +151,7 @@ function ReportsListPage() {
         <p className="status-message">No reports have been created yet.</p>
       ) : null}
 
-      {!isLoading && !errorMessage && reports.length > 0 ? (
+      {!isLoading && reports.length > 0 ? (
         <div className="table-scroll">
           <table className="reports-table">
             <thead>
@@ -109,7 +161,7 @@ function ReportsListPage() {
                 <th>Lab</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th>Detail</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -123,9 +175,22 @@ function ReportsListPage() {
                   </td>
                   <td>{formatDateTime(report.createdAt)}</td>
                   <td>
-                    <Link className="table-detail-link" to={`/reports/${report.id}`}>
-                      View details
-                    </Link>
+                    <div className="table-action-group">
+                      <Link
+                        className="table-detail-link"
+                        to={`/reports/${report.id}`}
+                      >
+                        View details
+                      </Link>
+                      <button
+                        className="action-button secondary danger table-action-button"
+                        type="button"
+                        onClick={() => handleDeleteReport(report.id)}
+                        disabled={deletingReportId !== null}
+                      >
+                        {deletingReportId === report.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

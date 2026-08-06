@@ -436,6 +436,18 @@ h2 {
   background: var(--color-primary-tint);
 }
 
+.action-button.secondary.danger {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+  background: var(--color-white);
+}
+
+.action-button.secondary.danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-tint);
+}
+
 .action-button {
   min-height: 40px;
 }
@@ -989,6 +1001,14 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
+}
+
+.report-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
 }
 
 .confirmed-observation-row {

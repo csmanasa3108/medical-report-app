@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   confirmParsedObservation,
+  deleteReport,
   extractReportText,
   getParsedObservations,
   getReport,
@@ -137,6 +138,7 @@ function buildUpdatePayload(
 
 function ReportDetailPage() {
   const { reportId } = useParams();
+  const navigate = useNavigate();
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [parsedObservations, setParsedObservations] = useState<
     ParsedObservationResponse[]
@@ -157,6 +159,7 @@ function ReportDetailPage() {
   const [savingObservationId, setSavingObservationId] = useState<string | null>(
     null
   );
+  const [isDeletingReport, setIsDeletingReport] = useState(false);
   const [editForm, setEditForm] = useState<ParsedObservationEditForm>({
     rawTestName: "",
     matchedTestId: "",
@@ -167,6 +170,7 @@ function ReportDetailPage() {
     referenceRange: ""
   });
   const [errorMessage, setErrorMessage] = useState("");
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState("");
   const [parsedErrorMessage, setParsedErrorMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
 
@@ -183,6 +187,7 @@ function ReportDetailPage() {
 
     setIsLoading(true);
     setErrorMessage("");
+    setDeleteErrorMessage("");
     setParsedErrorMessage("");
     setActionMessage("");
 
@@ -404,10 +409,43 @@ function ReportDetailPage() {
     }
   }
 
+  async function handleDeleteReport() {
+    if (!reportId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this report? This cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingReport(true);
+    setDeleteErrorMessage("");
+    setParsedErrorMessage("");
+    setActionMessage("");
+
+    try {
+      await deleteReport(reportId);
+      navigate("/reports", {
+        state: { successMessage: "Report deleted." }
+      });
+    } catch (error: unknown) {
+      setDeleteErrorMessage(
+        error instanceof Error ? error.message : "Unable to delete report."
+      );
+    } finally {
+      setIsDeletingReport(false);
+    }
+  }
+
   const isActionRunning =
     activeAction !== null ||
     confirmingObservationId !== null ||
-    savingObservationId !== null;
+    savingObservationId !== null ||
+    isDeletingReport;
 
   return (
     <section className="page-section">
@@ -419,9 +457,21 @@ function ReportDetailPage() {
             Review report metadata and confirm parsed diagnostic observations.
           </p>
         </div>
-        <Link className="button-link secondary" to="/reports">
-          All Reports
-        </Link>
+        <div className="report-detail-actions">
+          <Link className="button-link secondary" to="/reports">
+            All Reports
+          </Link>
+          {!isLoading && !errorMessage && report ? (
+            <button
+              className="action-button secondary danger"
+              type="button"
+              onClick={handleDeleteReport}
+              disabled={isActionRunning}
+            >
+              {isDeletingReport ? "Deleting..." : "Delete"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {isLoading ? <p className="status-message">Loading report...</p> : null}
@@ -429,6 +479,12 @@ function ReportDetailPage() {
       {!isLoading && errorMessage ? (
         <p className="status-message error-message" role="alert">
           {errorMessage}
+        </p>
+      ) : null}
+
+      {!isLoading && deleteErrorMessage ? (
+        <p className="status-message error-message" role="alert">
+          {deleteErrorMessage}
         </p>
       ) : null}
 

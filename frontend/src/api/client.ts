@@ -175,6 +175,12 @@ export function getReport(reportId: string) {
   );
 }
 
+export function deleteReport(reportId: string) {
+  return apiCommand(`/api/reports/${encodeURIComponent(reportId)}`, {
+    method: "DELETE"
+  });
+}
+
 export function extractReportText(reportId: string) {
   return apiCommand(
     `/api/reports/${encodeURIComponent(reportId)}/extract-text`,
