@@ -5,6 +5,7 @@ import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -58,6 +59,16 @@ public class LabObservationService {
 
         LabObservation savedObservation = labObservationRepository.save(observation);
         return LabObservationResponse.from(savedObservation, test.displayName());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<LabObservationResponse> findByIdForDefaultUser(UUID observationId) {
+        return labObservationRepository.findByIdAndUserId(observationId, defaultUserProvider.getDefaultUserId())
+            .map(observation -> {
+                TestCatalogLookup test = testCatalogLookupService.findById(observation.getTestId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed lab observation has no matching test"));
+                return LabObservationResponse.from(observation, test.displayName());
+            });
     }
 
     @Transactional(readOnly = true)

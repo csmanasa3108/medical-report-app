@@ -52,6 +52,12 @@ class ParsedObservation {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "confirmed_observation_id")
+    private UUID confirmedObservationId;
+
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
     protected ParsedObservation() {
     }
 
@@ -123,6 +129,14 @@ class ParsedObservation {
         return createdAt;
     }
 
+    UUID getConfirmedObservationId() {
+        return confirmedObservationId;
+    }
+
+    Instant getConfirmedAt() {
+        return confirmedAt;
+    }
+
     void setRawTestName(String rawTestName) {
         this.rawTestName = rawTestName;
     }
@@ -153,5 +167,11 @@ class ParsedObservation {
 
     void markConfirmed() {
         this.status = ParsedObservationStatus.CONFIRMED;
+    }
+
+    void markConfirmed(UUID confirmedObservationId, Instant confirmedAt) {
+        this.status = ParsedObservationStatus.CONFIRMED;
+        this.confirmedObservationId = confirmedObservationId;
+        this.confirmedAt = confirmedAt;
     }
 }

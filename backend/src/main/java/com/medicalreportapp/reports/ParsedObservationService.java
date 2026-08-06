@@ -6,8 +6,10 @@ import com.medicalreportapp.observations.LabObservationResponse;
 import com.medicalreportapp.observations.LabObservationService;
 import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,12 +52,16 @@ class ParsedObservationService {
 
     @Transactional
     public List<ParsedObservationResponse> parse(UUID reportId) {
-        Report report = findReportForDefaultUser(reportId);
+        Report report = findReportForDefaultUserForUpdate(reportId);
         if (!StringUtils.hasText(report.getExtractedText())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report has no extracted text");
         }
 
-        parsedObservationRepository.deleteByReportId(report.getId());
+        parsedObservationRepository.deleteByReportIdAndStatusNot(report.getId(), ParsedObservationStatus.CONFIRMED);
+        List<ParsedObservation> confirmedObservations = parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(
+            report.getId(),
+            ParsedObservationStatus.CONFIRMED
+        );
         List<ParsedObservation> parsedObservations = parsedObservationParser.parse(
             report.getExtractedText(),
             report.getReportDate(),
@@ -73,9 +79,14 @@ class ParsedObservationService {
                 observation.getReferenceRange(),
                 observation.getStatus()
             ))
+            .filter(observation -> !duplicatesConfirmedObservation(observation, confirmedObservations))
             .toList();
 
-        return parsedObservationRepository.saveAll(parsedObservations).stream()
+        if (!parsedObservations.isEmpty()) {
+            parsedObservationRepository.saveAll(parsedObservations);
+        }
+
+        return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
             .map(ParsedObservationResponse::from)
             .toList();
     }
@@ -131,12 +142,16 @@ class ParsedObservationService {
 
     @Transactional
     public LabObservationResponse confirm(UUID parsedObservationId) {
-        ParsedObservation parsedObservation = parsedObservationRepository.findById(parsedObservationId)
+        ParsedObservation parsedObservation = parsedObservationRepository.findByIdForUpdate(parsedObservationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
         Report report = findReportForDefaultUser(parsedObservation.getReportId());
 
         if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation is already confirmed");
+            if (parsedObservation.getConfirmedObservationId() == null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Parsed observation is already confirmed without a linked lab observation");
+            }
+            return labObservationService.findByIdForDefaultUser(parsedObservation.getConfirmedObservationId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed lab observation not found"));
         }
         if (parsedObservation.getMatchedTestId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no matched test");
@@ -163,7 +178,7 @@ class ParsedObservationService {
             abnormalFlag(parsedObservation.getNumericValue(), referenceBounds)
         ));
 
-        parsedObservation.markConfirmed();
+        parsedObservation.markConfirmed(response.id(), Instant.now());
         return response;
     }
 
@@ -171,6 +186,51 @@ class ParsedObservationService {
         UUID userId = defaultUserProvider.getDefaultUserId();
         return reportRepository.findByIdAndUserId(reportId, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+    }
+
+    private Report findReportForDefaultUserForUpdate(UUID reportId) {
+        UUID userId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndUserIdForUpdate(reportId, userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+    }
+
+    private static boolean duplicatesConfirmedObservation(
+        ParsedObservation candidate,
+        List<ParsedObservation> confirmedObservations
+    ) {
+        return confirmedObservations.stream()
+            .anyMatch(confirmedObservation -> duplicatesConfirmedObservation(candidate, confirmedObservation));
+    }
+
+    private static boolean duplicatesConfirmedObservation(
+        ParsedObservation candidate,
+        ParsedObservation confirmedObservation
+    ) {
+        if (!Objects.equals(candidate.getObservedAt(), confirmedObservation.getObservedAt())
+            || !sameNumericValue(candidate.getNumericValue(), confirmedObservation.getNumericValue())
+            || !Objects.equals(candidate.getUnit(), confirmedObservation.getUnit())) {
+            return false;
+        }
+
+        if (candidate.getMatchedTestId() != null) {
+            return Objects.equals(candidate.getMatchedTestId(), confirmedObservation.getMatchedTestId());
+        }
+
+        return sameRawTestName(candidate.getRawTestName(), confirmedObservation.getRawTestName());
+    }
+
+    private static boolean sameNumericValue(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    private static boolean sameRawTestName(String left, String right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
     }
 
     private static ReferenceBounds parseReferenceBounds(String referenceRange) {
