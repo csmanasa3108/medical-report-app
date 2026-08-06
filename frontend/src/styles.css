@@ -272,6 +272,43 @@ h2 {
   font-size: var(--font-size-lg);
 }
 
+.dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.dashboard-summary-card {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 360px;
+  padding: var(--space-9);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(180deg, var(--color-white), var(--color-surface-soft)),
+    var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.dashboard-summary-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.dashboard-summary-value {
+  color: var(--color-primary-deep);
+  font-size: 2.35rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.dashboard-summary-detail {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 .dashboard-action-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -303,6 +340,14 @@ h2 {
   margin-bottom: var(--space-7);
   border-radius: 999px;
   background: var(--color-primary);
+}
+
+.dashboard-action-meta {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .dashboard-action-card-sand .dashboard-action-accent {
@@ -338,6 +383,14 @@ h2 {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   line-height: 1.45;
+}
+
+.dashboard-action-cta {
+  align-self: end;
+  margin-top: var(--space-8);
+  color: var(--color-primary-deep);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
 }
 
 .button-link,
