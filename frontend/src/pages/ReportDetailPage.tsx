@@ -77,9 +77,27 @@ function canConfirmParsedObservation(observation: ParsedObservationResponse) {
 }
 
 function getStatusClassName(status: string | null) {
-  return status === "CONFIRMED"
-    ? "status-badge status-badge-confirmed"
-    : "status-badge";
+  if (status === "CONFIRMED") {
+    return "status-badge status-badge-confirmed";
+  }
+
+  if (status === "NEEDS_REVIEW") {
+    return "status-badge status-badge-review";
+  }
+
+  return "status-badge";
+}
+
+function formatStatus(status: string | null) {
+  if (!status) {
+    return "Not provided";
+  }
+
+  return status.replace(/_/g, " ");
+}
+
+function formatShortId(value: string) {
+  return value.length > 8 ? `${value.slice(0, 8)}...` : value;
 }
 
 function findMatchedTest(
@@ -457,12 +475,9 @@ function ReportDetailPage() {
 
       {!isLoading && !errorMessage && report ? (
         <section className="parsed-observations-section">
-          <div className="subsection-header">
-            <div>
-              <p className="eyebrow">Review</p>
-              <h3>Parsed Observations</h3>
-            </div>
-            <div className="report-actions">
+          <div className="parsed-observations-header">
+            <h3>Parsed Observations</h3>
+            <div className="parsed-observations-actions">
               <button
                 className="action-button"
                 type="button"
@@ -477,7 +492,7 @@ function ReportDetailPage() {
                 onClick={handleParseObservations}
                 disabled={isActionRunning}
               >
-                {activeAction === "parse" ? "Parsing..." : "Parse observations"}
+                {activeAction === "parse" ? "Parsing..." : "Parse / Re-parse"}
               </button>
               <button
                 className="action-button secondary"
@@ -485,11 +500,12 @@ function ReportDetailPage() {
                 onClick={handleRefreshParsedObservations}
                 disabled={isActionRunning}
               >
-                {activeAction === "refresh"
-                  ? "Refreshing..."
-                  : "Refresh parsed observations"}
+                {activeAction === "refresh" ? "Refreshing..." : "Refresh"}
               </button>
             </div>
+            <p className="parse-observations-helper">
+              Re-parsing refreshes unconfirmed rows and keeps confirmed rows.
+            </p>
           </div>
 
           {actionMessage ? (
@@ -517,11 +533,22 @@ function ReportDetailPage() {
           {!isParsedLoading && parsedObservations.length > 0 ? (
             <div className="table-scroll">
               <table className="reports-table parsed-observations-table">
+                <colgroup>
+                  <col className="raw-test-column" />
+                  <col className="matched-test-column" />
+                  <col className="observed-at-column" />
+                  <col className="raw-value-column" />
+                  <col className="numeric-value-column" />
+                  <col className="unit-column" />
+                  <col className="reference-range-column" />
+                  <col className="status-column" />
+                  <col className="actions-column" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Raw test</th>
                     <th>Matched test</th>
-                    <th>Observed</th>
+                    <th className="nowrap-cell">Observed</th>
                     <th>Raw value</th>
                     <th>Numeric value</th>
                     <th>Unit</th>
@@ -600,24 +627,22 @@ function ReportDetailPage() {
                               className="matched-test-cell"
                               title={observation.matchedTestId}
                             >
-                              <span>
+                              <span className="matched-test-name">
                                 {matchedTest?.displayName ??
-                                  observation.matchedTestId}
+                                  "Catalog match unavailable"}
                               </span>
-                              {matchedTest ? (
-                                <span className="muted-id">
-                                  {observation.matchedTestId}
-                                </span>
-                              ) : null}
+                              <span className="muted-id">
+                                ID {formatShortId(observation.matchedTestId)}
+                              </span>
                             </span>
                           ) : (
                             "Not provided"
                           )}
                         </td>
-                        <td>
+                        <td className="nowrap-cell">
                           {isEditing ? (
                             <input
-                              className="table-input"
+                              className="table-input date-input"
                               type="date"
                               value={editForm.observedAt}
                               onChange={(event) =>
@@ -690,7 +715,7 @@ function ReportDetailPage() {
                         </td>
                         <td>
                           <span className={getStatusClassName(observation.status)}>
-                            {formatOptionalValue(observation.status)}
+                            {formatStatus(observation.status)}
                           </span>
                         </td>
                         <td className="actions-column">
