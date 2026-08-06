@@ -1,6 +1,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ReportResponse, uploadReport } from "../api/client";
+import StatusBadge from "../components/StatusBadge";
 
 type ReportFormState = {
   reportDate: string;
@@ -93,50 +94,56 @@ function NewReportPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2>Upload Report PDF</h2>
+          <h2 className="page-title">Upload Diagnostic Report</h2>
+          <p className="page-description">
+            Add a PDF report and optional metadata for diagnostic review.
+          </p>
         </div>
         <Link className="button-link secondary" to="/reports">
           All Reports
         </Link>
       </div>
 
-      <form className="metadata-form" onSubmit={handleSubmit}>
-        <label>
-          PDF file
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(event) =>
-              handleFileChange(event.target.files?.item(0) ?? null)
-            }
-            required
-          />
-        </label>
+      <div className="form-card">
+        <form className="metadata-form upload-report-form" onSubmit={handleSubmit}>
+          <label className="full-span-field">
+            <span>PDF file</span>
+            <span className="field-helper">PDF files only</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(event) =>
+                handleFileChange(event.target.files?.item(0) ?? null)
+              }
+              required
+            />
+          </label>
 
-        <label>
-          Report date <span className="optional-label">Optional</span>
-          <input
-            type="date"
-            value={form.reportDate}
-            onChange={(event) => updateField("reportDate", event.target.value)}
-          />
-        </label>
+          <label>
+            Report date <span className="optional-label">Optional</span>
+            <input
+              type="date"
+              value={form.reportDate}
+              onChange={(event) => updateField("reportDate", event.target.value)}
+            />
+          </label>
 
-        <label>
-          Lab name <span className="optional-label">Optional</span>
-          <input
-            type="text"
-            value={form.labName}
-            onChange={(event) => updateField("labName", event.target.value)}
-            placeholder="Quest Diagnostics"
-          />
-        </label>
+          <label>
+            Lab name <span className="optional-label">Optional</span>
+            <input
+              type="text"
+              value={form.labName}
+              onChange={(event) => updateField("labName", event.target.value)}
+              placeholder="Quest Diagnostics"
+            />
+          </label>
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Uploading..." : "Upload Report"}
-        </button>
-      </form>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Uploading..." : "Upload report"}
+          </button>
+        </form>
+      </div>
 
       {uploadedReport ? (
         <div className="status-message success-message" role="status">
@@ -148,7 +155,9 @@ function NewReportPage() {
             </div>
             <div>
               <dt>Status</dt>
-              <dd>{uploadedReport.status}</dd>
+              <dd>
+                <StatusBadge status={uploadedReport.status} />
+              </dd>
             </div>
           </dl>
           <div className="message-actions">

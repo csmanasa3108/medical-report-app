@@ -153,99 +153,120 @@ function AddObservationPage() {
 
   return (
     <section className="page-section">
-      <h2>Add Observation</h2>
-      <form className="observation-form" onSubmit={handleSubmit}>
-        <label>
-          Test
-          <select
-            value={form.testId}
-            onChange={(event) => updateSelectedTest(event.target.value)}
-            disabled={isLoadingTests || tests.length === 0}
-            required
-          >
-            {isLoadingTests ? (
-              <option value="">Loading tests...</option>
-            ) : (
-              tests.map((test) => (
-                <option key={test.id} value={test.id}>
-                  {test.displayName}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
+      <div className="section-header">
+        <div>
+          <p className="eyebrow">Observations</p>
+          <h2 className="page-title">Add Manual Observation</h2>
+          <p className="page-description">
+            Manually enter lab values when a report is not available or
+            extraction needs correction.
+          </p>
+        </div>
+      </div>
+      <div className="form-card observation-form-card">
+        <form className="observation-form manual-observation-form" onSubmit={handleSubmit}>
+          <label className="full-span-field">
+            Test
+            <select
+              value={form.testId}
+              onChange={(event) => updateSelectedTest(event.target.value)}
+              disabled={isLoadingTests || tests.length === 0}
+              required
+            >
+              {isLoadingTests ? (
+                <option value="">Loading tests...</option>
+              ) : (
+                tests.map((test) => (
+                  <option key={test.id} value={test.id}>
+                    {test.displayName}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
 
-        <label>
-          Observed date
-          <input
-            type="date"
-            value={form.observedAt}
-            onChange={(event) => updateField("observedAt", event.target.value)}
-            required
-          />
-        </label>
+          <label>
+            Observed date
+            <input
+              type="date"
+              value={form.observedAt}
+              onChange={(event) => updateField("observedAt", event.target.value)}
+              required
+            />
+          </label>
 
-        <label>
-          Value
-          <input
-            type="number"
-            step="any"
-            value={form.numericValue}
-            onChange={(event) => updateField("numericValue", event.target.value)}
-            required
-          />
-        </label>
+          <label>
+            Value
+            <input
+              type="number"
+              step="any"
+              value={form.numericValue}
+              onChange={(event) =>
+                updateField("numericValue", event.target.value)
+              }
+              required
+            />
+          </label>
 
-        <label>
-          Unit
-          <input
-            type="text"
-            value={form.unit}
-            onChange={(event) => updateField("unit", event.target.value)}
-            required
-          />
-        </label>
+          <label>
+            Unit
+            <span className="field-helper">Auto-filled from selected test</span>
+            <input
+              type="text"
+              value={form.unit}
+              onChange={(event) => updateField("unit", event.target.value)}
+              required
+            />
+          </label>
 
-        <label>
-          Reference low
-          <input
-            type="number"
-            step="any"
-            value={form.referenceLow}
-            onChange={(event) => updateField("referenceLow", event.target.value)}
-            required
-          />
-        </label>
+          <fieldset className="reference-range-group">
+            <legend>Reference range</legend>
+            <label>
+              Low
+              <input
+                type="number"
+                step="any"
+                value={form.referenceLow}
+                onChange={(event) =>
+                  updateField("referenceLow", event.target.value)
+                }
+                required
+              />
+            </label>
 
-        <label>
-          Reference high
-          <input
-            type="number"
-            step="any"
-            value={form.referenceHigh}
-            onChange={(event) => updateField("referenceHigh", event.target.value)}
-            required
-          />
-        </label>
+            <label>
+              High
+              <input
+                type="number"
+                step="any"
+                value={form.referenceHigh}
+                onChange={(event) =>
+                  updateField("referenceHigh", event.target.value)
+                }
+                required
+              />
+            </label>
+          </fieldset>
 
-        <label>
-          Abnormal flag
-          <select
-            value={form.abnormalFlag}
-            onChange={(event) => updateField("abnormalFlag", event.target.value)}
-            required
-          >
-            <option value="NORMAL">Normal</option>
-            <option value="LOW">Low</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
-          </select>
-        </label>
+          <label>
+            Abnormal flag
+            <select
+              value={form.abnormalFlag}
+              onChange={(event) => updateField("abnormalFlag", event.target.value)}
+              required
+            >
+              <option value="NORMAL">Normal</option>
+              <option value="LOW">Low</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
+          </label>
 
-        <button type="submit" disabled={isSubmitting || isLoadingTests}>
-          {isSubmitting ? "Saving..." : "Save Observation"}
-        </button>
-      </form>
+          <button type="submit" disabled={isSubmitting || isLoadingTests}>
+            {isSubmitting ? "Saving..." : "Save observation"}
+          </button>
+        </form>
+      </div>
 
       {successObservation ? (
         <p className="status-message success-message" role="status">

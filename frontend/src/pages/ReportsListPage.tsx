@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getReports, ReportResponse } from "../api/client";
+import StatusBadge from "../components/StatusBadge";
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -75,10 +76,14 @@ function ReportsListPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2>Report Metadata</h2>
+          <h2 className="page-title">Reports</h2>
+          <p className="page-description">
+            Manage uploaded diagnostic reports and review extracted lab
+            observations.
+          </p>
         </div>
         <Link className="button-link" to="/reports/new">
-          New Report
+          Upload Report
         </Link>
       </div>
 
@@ -110,13 +115,17 @@ function ReportsListPage() {
             <tbody>
               {reports.map((report) => (
                 <tr key={report.id}>
-                  <td>{report.originalFilename}</td>
+                  <td className="report-filename">{report.originalFilename}</td>
                   <td>{formatDate(report.reportDate)}</td>
                   <td>{report.labName || "Not provided"}</td>
-                  <td>{report.status}</td>
+                  <td>
+                    <StatusBadge status={report.status} />
+                  </td>
                   <td>{formatDateTime(report.createdAt)}</td>
                   <td>
-                    <Link to={`/reports/${report.id}`}>View</Link>
+                    <Link className="table-detail-link" to={`/reports/${report.id}`}>
+                      View details
+                    </Link>
                   </td>
                 </tr>
               ))}

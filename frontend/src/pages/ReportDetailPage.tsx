@@ -13,6 +13,7 @@ import {
   updateParsedObservation,
   UpdateParsedObservationRequest
 } from "../api/client";
+import StatusBadge from "../components/StatusBadge";
 
 type ParsedObservationEditForm = {
   rawTestName: string;
@@ -74,26 +75,6 @@ function canConfirmParsedObservation(observation: ParsedObservationResponse) {
     observation.numericValue !== null &&
     observation.numericValue !== undefined
   );
-}
-
-function getStatusClassName(status: string | null) {
-  if (status === "CONFIRMED") {
-    return "status-badge status-badge-confirmed";
-  }
-
-  if (status === "NEEDS_REVIEW") {
-    return "status-badge status-badge-review";
-  }
-
-  return "status-badge";
-}
-
-function formatStatus(status: string | null) {
-  if (!status) {
-    return "Not provided";
-  }
-
-  return status.replace(/_/g, " ");
 }
 
 function formatShortId(value: string) {
@@ -433,7 +414,10 @@ function ReportDetailPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2>Report Detail</h2>
+          <h2 className="page-title">Report Detail</h2>
+          <p className="page-description">
+            Review report metadata and confirm parsed diagnostic observations.
+          </p>
         </div>
         <Link className="button-link secondary" to="/reports">
           All Reports
@@ -452,7 +436,7 @@ function ReportDetailPage() {
         <dl className="detail-list">
           <div>
             <dt>Original filename</dt>
-            <dd>{report.originalFilename}</dd>
+            <dd className="detail-filename">{report.originalFilename}</dd>
           </div>
           <div>
             <dt>Report date</dt>
@@ -464,7 +448,9 @@ function ReportDetailPage() {
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{report.status}</dd>
+            <dd>
+              <StatusBadge status={report.status} />
+            </dd>
           </div>
           <div>
             <dt>Created</dt>
@@ -476,36 +462,38 @@ function ReportDetailPage() {
       {!isLoading && !errorMessage && report ? (
         <section className="parsed-observations-section">
           <div className="parsed-observations-header">
-            <h3>Parsed Observations</h3>
-            <div className="parsed-observations-actions">
-              <button
-                className="action-button"
-                type="button"
-                onClick={handleExtractText}
-                disabled={isActionRunning}
-              >
-                {activeAction === "extract" ? "Extracting..." : "Extract text"}
-              </button>
-              <button
-                className="action-button"
-                type="button"
-                onClick={handleParseObservations}
-                disabled={isActionRunning}
-              >
-                {activeAction === "parse" ? "Parsing..." : "Parse / Re-parse"}
-              </button>
-              <button
-                className="action-button secondary"
-                type="button"
-                onClick={handleRefreshParsedObservations}
-                disabled={isActionRunning}
-              >
-                {activeAction === "refresh" ? "Refreshing..." : "Refresh"}
-              </button>
+            <div>
+              <h3>Parsed Observations</h3>
+              <p className="parse-observations-helper">
+                Re-parsing refreshes unconfirmed rows and keeps confirmed rows.
+              </p>
             </div>
-            <p className="parse-observations-helper">
-              Re-parsing refreshes unconfirmed rows and keeps confirmed rows.
-            </p>
+          </div>
+          <div className="parsed-observations-actions">
+            <button
+              className="action-button"
+              type="button"
+              onClick={handleExtractText}
+              disabled={isActionRunning}
+            >
+              {activeAction === "extract" ? "Extracting..." : "Extract text"}
+            </button>
+            <button
+              className="action-button"
+              type="button"
+              onClick={handleParseObservations}
+              disabled={isActionRunning}
+            >
+              {activeAction === "parse" ? "Parsing..." : "Parse / Re-parse"}
+            </button>
+            <button
+              className="action-button secondary"
+              type="button"
+              onClick={handleRefreshParsedObservations}
+              disabled={isActionRunning}
+            >
+              {activeAction === "refresh" ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
 
           {actionMessage ? (
@@ -540,7 +528,6 @@ function ReportDetailPage() {
                   <col className="raw-value-column" />
                   <col className="numeric-value-column" />
                   <col className="unit-column" />
-                  <col className="reference-range-column" />
                   <col className="status-column" />
                   <col className="actions-column" />
                 </colgroup>
@@ -552,7 +539,6 @@ function ReportDetailPage() {
                     <th>Raw value</th>
                     <th>Numeric value</th>
                     <th>Unit</th>
-                    <th>Reference range</th>
                     <th>Status</th>
                     <th className="actions-column">Actions</th>
                   </tr>
@@ -587,18 +573,23 @@ function ReportDetailPage() {
                         key={rowKey}
                       >
                         <td>
-                          {isEditing ? (
-                            <input
-                              className="table-input"
-                              type="text"
-                              value={editForm.rawTestName}
-                              onChange={(event) =>
-                                updateEditField("rawTestName", event.target.value)
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.rawTestName)
-                          )}
+                          <span className="raw-test-cell">
+                            {isEditing ? (
+                              <input
+                                className="table-input"
+                                type="text"
+                                value={editForm.rawTestName}
+                                onChange={(event) =>
+                                  updateEditField(
+                                    "rawTestName",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            ) : (
+                              formatOptionalValue(observation.rawTestName)
+                            )}
+                          </span>
                         </td>
                         <td>
                           {isEditing ? (
@@ -606,7 +597,10 @@ function ReportDetailPage() {
                               className="table-input"
                               value={editForm.matchedTestId}
                               onChange={(event) =>
-                                updateEditField("matchedTestId", event.target.value)
+                                updateEditField(
+                                  "matchedTestId",
+                                  event.target.value
+                                )
                               }
                               disabled={isTestsLoading}
                             >
@@ -675,7 +669,10 @@ function ReportDetailPage() {
                               step="any"
                               value={editForm.numericValue}
                               onChange={(event) =>
-                                updateEditField("numericValue", event.target.value)
+                                updateEditField(
+                                  "numericValue",
+                                  event.target.value
+                                )
                               }
                             />
                           ) : (
@@ -697,26 +694,7 @@ function ReportDetailPage() {
                           )}
                         </td>
                         <td>
-                          {isEditing ? (
-                            <input
-                              className="table-input"
-                              type="text"
-                              value={editForm.referenceRange}
-                              onChange={(event) =>
-                                updateEditField(
-                                  "referenceRange",
-                                  event.target.value
-                                )
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.referenceRange)
-                          )}
-                        </td>
-                        <td>
-                          <span className={getStatusClassName(observation.status)}>
-                            {formatStatus(observation.status)}
-                          </span>
+                          <StatusBadge status={observation.status} />
                         </td>
                         <td className="actions-column">
                           {isEditing && observation.id ? (

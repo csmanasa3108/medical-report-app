@@ -32,6 +32,16 @@ function formatPercent(value: number | null | undefined) {
   return `${formatNumber(value)}%`;
 }
 
+function formatValueWithUnit(value: number | null | undefined, unit: string) {
+  const formattedValue = formatNumber(value);
+
+  if (formattedValue === "N/A" || !unit) {
+    return formattedValue;
+  }
+
+  return `${formattedValue} ${unit}`;
+}
+
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
 
@@ -81,7 +91,7 @@ function getSummary(trend: LabTrendResponse, points: ChartPoint[]): Summary {
 function TrendLineChart({ points, unit }: { points: ChartPoint[]; unit: string }) {
   const width = 720;
   const height = 320;
-  const padding = 44;
+  const padding = 52;
   const values = points.map((point) => point.value);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
@@ -104,9 +114,26 @@ function TrendLineChart({ points, unit }: { points: ChartPoint[]; unit: string }
     .join(" ");
 
   return (
-    <div className="trend-chart" aria-label={`Trend chart in ${unit}`}>
+    <div
+      className="trend-chart"
+      aria-label={`Trend chart${unit ? ` in ${unit}` : ""}`}
+    >
       <svg viewBox={`0 0 ${width} ${height}`} role="img">
         <title>Lab trend over time</title>
+        <line
+          className="chart-grid"
+          x1={padding}
+          x2={width - padding}
+          y1={padding}
+          y2={padding}
+        />
+        <line
+          className="chart-grid"
+          x1={padding}
+          x2={width - padding}
+          y1={height / 2}
+          y2={height / 2}
+        />
         <line
           className="chart-axis"
           x1={padding}
@@ -122,14 +149,17 @@ function TrendLineChart({ points, unit }: { points: ChartPoint[]; unit: string }
           y2={height - padding}
         />
         <text className="chart-label" x={padding} y={padding - 16}>
-          {formatNumber(maxValue)} {unit}
+          {formatValueWithUnit(maxValue, unit)}
         </text>
         <text className="chart-label" x={padding} y={height - padding + 28}>
-          {formatNumber(minValue)} {unit}
+          {formatValueWithUnit(minValue, unit)}
         </text>
         {points.length > 1 ? <path className="chart-line" d={path} /> : null}
         {plottedPoints.map((point) => (
           <g key={`${point.date}-${point.value}`}>
+            <title>
+              {formatDate(point.date)}: {formatValueWithUnit(point.value, unit)}
+            </title>
             <circle className="chart-point" cx={point.x} cy={point.y} r="6" />
             <text className="chart-point-label" x={point.x} y={point.y - 12}>
               {formatNumber(point.value)}
@@ -207,15 +237,16 @@ function TrendPage() {
     [points, trend]
   );
   const trendUnit = trend?.unit ?? "";
+  const trendTitle = trend ? `${trend.testName} Trend` : "Trend";
 
   return (
     <section className="page-section">
       {isLoading ? (
-        <p className="status-message">Loading trend data...</p>
+        <p className="status-message trend-state-message">Loading trend data...</p>
       ) : null}
 
       {!isLoading && errorMessage ? (
-        <p className="status-message error-message" role="alert">
+        <p className="status-message error-message trend-state-message" role="alert">
           {errorMessage}
         </p>
       ) : null}
@@ -225,29 +256,28 @@ function TrendPage() {
           <div className="trend-header">
             <div>
               <p className="eyebrow">Trend</p>
-              <h2>{trend.testName}</h2>
+              <h2 className="page-title">{trendTitle}</h2>
+              <p className="page-description">
+                {trendUnit
+                  ? `Unit: ${trendUnit}`
+                  : "Review diagnostic values over time."}
+              </p>
             </div>
-            <span className="unit-badge">{trendUnit}</span>
+            {trendUnit ? <span className="unit-badge">{trendUnit}</span> : null}
           </div>
 
           <dl className="trend-summary">
             <div>
               <dt>Latest value</dt>
-              <dd>
-                {formatNumber(summary?.latestValue)} {trendUnit}
-              </dd>
+              <dd>{formatValueWithUnit(summary?.latestValue, trendUnit)}</dd>
             </div>
             <div>
               <dt>Previous value</dt>
-              <dd>
-                {formatNumber(summary?.previousValue)} {trendUnit}
-              </dd>
+              <dd>{formatValueWithUnit(summary?.previousValue, trendUnit)}</dd>
             </div>
             <div>
               <dt>Absolute change</dt>
-              <dd>
-                {formatNumber(summary?.absoluteChange)} {trendUnit}
-              </dd>
+              <dd>{formatValueWithUnit(summary?.absoluteChange, trendUnit)}</dd>
             </div>
             <div>
               <dt>Percent change</dt>
@@ -257,10 +287,21 @@ function TrendPage() {
 
           {points.length === 0 ? (
             <div className="trend-chart-empty">
-              No chart points were returned for this test.
+              No trend points were returned for this test.
             </div>
           ) : (
-            <TrendLineChart points={points} unit={trendUnit} />
+            <section className="trend-chart-card" aria-label="Trend chart">
+              <div className="trend-chart-card-header">
+                <div>
+                  <h3>Diagnostic trend</h3>
+                  <p>
+                    {points.length} point{points.length === 1 ? "" : "s"} plotted
+                    over time.
+                  </p>
+                </div>
+              </div>
+              <TrendLineChart points={points} unit={trendUnit} />
+            </section>
           )}
         </>
       ) : null}
