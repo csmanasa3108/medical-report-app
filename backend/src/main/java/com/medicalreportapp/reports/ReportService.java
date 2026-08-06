@@ -27,15 +27,18 @@ class ReportService {
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private final ReportRepository reportRepository;
+    private final ParsedObservationRepository parsedObservationRepository;
     private final DefaultUserProvider defaultUserProvider;
     private final Path reportUploadDirectory;
 
     ReportService(
         ReportRepository reportRepository,
+        ParsedObservationRepository parsedObservationRepository,
         DefaultUserProvider defaultUserProvider,
         @Value("${app.uploads.reports-directory:uploads/reports}") String reportUploadDirectory
     ) {
         this.reportRepository = reportRepository;
+        this.parsedObservationRepository = parsedObservationRepository;
         this.defaultUserProvider = defaultUserProvider;
         this.reportUploadDirectory = Path.of(reportUploadDirectory);
     }
@@ -131,9 +134,40 @@ class ReportService {
         return ReportTextResponse.from(findReportForDefaultUser(reportId));
     }
 
+    @Transactional
+    public DeleteReportResponse delete(UUID reportId) {
+        Report report = findReportForDefaultUserForUpdate(reportId);
+        if (parsedObservationRepository.existsByReportIdAndStatus(report.getId(), ParsedObservationStatus.CONFIRMED)) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Report has confirmed parsed observations and cannot be deleted"
+            );
+        }
+
+        parsedObservationRepository.deleteByReportId(report.getId());
+        if (parsedObservationRepository.existsByReportId(report.getId())) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Report still has parsed observations and cannot be deleted"
+            );
+        }
+
+        reportRepository.delete(report);
+        reportRepository.flush();
+        deleteStoredFile(report.getStoragePath());
+
+        return DeleteReportResponse.deleted(report.getId());
+    }
+
     private Report findReportForDefaultUser(UUID reportId) {
         UUID userId = defaultUserProvider.getDefaultUserId();
         return reportRepository.findByIdAndUserId(reportId, userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+    }
+
+    private Report findReportForDefaultUserForUpdate(UUID reportId) {
+        UUID userId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndUserIdForUpdate(reportId, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 
@@ -178,5 +212,12 @@ class ReportService {
         } catch (IOException ignored) {
             // Best-effort cleanup only; avoid logging sensitive local file paths.
         }
+    }
+
+    private static void deleteStoredFile(String storagePath) {
+        if (!StringUtils.hasText(storagePath)) {
+            return;
+        }
+        deleteStoredFile(Path.of(storagePath));
     }
 }

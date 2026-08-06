@@ -2,6 +2,7 @@ com/medicalreportapp/reports/Report.class
 com/medicalreportapp/reports/ParsedObservationService$ParsedObservationDeduplicationKey.class
 com/medicalreportapp/testcatalog/TestCatalogEntry.class
 com/medicalreportapp/reports/ReportResponse.class
+com/medicalreportapp/reports/DeleteReportResponse.class
 com/medicalreportapp/observations/LabObservationAnalyticsController.class
 com/medicalreportapp/MedicalReportAppBackendApplication.class
 com/medicalreportapp/reports/CreateReportRequest.class

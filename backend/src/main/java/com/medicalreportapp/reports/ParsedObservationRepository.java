@@ -14,6 +14,12 @@ interface ParsedObservationRepository extends JpaRepository<ParsedObservation, U
 
     void deleteByReportIdAndStatusNot(UUID reportId, ParsedObservationStatus status);
 
+    void deleteByReportId(UUID reportId);
+
+    boolean existsByReportId(UUID reportId);
+
+    boolean existsByReportIdAndStatus(UUID reportId, ParsedObservationStatus status);
+
     List<ParsedObservation> findByReportIdAndStatusOrderByCreatedAtAsc(UUID reportId, ParsedObservationStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -3,6 +3,7 @@ package com.medicalreportapp.reports;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,11 +29,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,6 +40,9 @@ class ReportServiceTest {
     private ReportRepository reportRepository;
 
     @Mock
+    private ParsedObservationRepository parsedObservationRepository;
+
+    @Mock
     private DefaultUserProvider defaultUserProvider;
 
     @TempDir
@@ -48,7 +52,12 @@ class ReportServiceTest {
 
     @BeforeEach
     void setUp() {
-        reportService = new ReportService(reportRepository, defaultUserProvider, reportUploadDirectory.toString());
+        reportService = new ReportService(
+            reportRepository,
+            parsedObservationRepository,
+            defaultUserProvider,
+            reportUploadDirectory.toString()
+        );
     }
 
     @Test
@@ -265,6 +274,96 @@ class ReportServiceTest {
     }
 
     @Test
+    void deleteRemovesUnconfirmedParsedObservationsReportAndStoredFile() throws Exception {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path pdfPath = reportUploadDirectory.resolve(reportId + ".pdf");
+        Files.writeString(pdfPath, "%PDF-1.7 test");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
+        when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(false);
+
+        DeleteReportResponse response = reportService.delete(reportId);
+
+        assertThat(response.reportId()).isEqualTo(reportId);
+        assertThat(response.status()).isEqualTo("DELETED");
+        assertThat(Files.exists(pdfPath)).isFalse();
+        verify(parsedObservationRepository).deleteByReportId(reportId);
+        verify(reportRepository).delete(report);
+        verify(reportRepository).flush();
+    }
+
+    @Test
+    void deleteDoesNotCrashWhenStoredFileIsMissing() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path missingPath = reportUploadDirectory.resolve(reportId + ".pdf");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", missingPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
+        when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(false);
+
+        DeleteReportResponse response = reportService.delete(reportId);
+
+        assertThat(response.status()).isEqualTo("DELETED");
+        verify(parsedObservationRepository).deleteByReportId(reportId);
+        verify(reportRepository).delete(report);
+        verify(reportRepository).flush();
+    }
+
+    @Test
+    void deleteReturnsConflictWhenReportHasConfirmedParsedObservations() throws Exception {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path pdfPath = reportUploadDirectory.resolve(reportId + ".pdf");
+        Files.writeString(pdfPath, "%PDF-1.7 test");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(true);
+
+        assertThatThrownBy(() -> reportService.delete(reportId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.CONFLICT);
+
+        assertThat(Files.exists(pdfPath)).isTrue();
+        verify(parsedObservationRepository, never()).deleteByReportId(reportId);
+        verify(reportRepository, never()).delete(any(Report.class));
+        verify(reportRepository, never()).flush();
+    }
+
+    @Test
+    void deleteReturnsConflictWhenParsedObservationsRemainAfterDeletionAttempt() throws Exception {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Path pdfPath = reportUploadDirectory.resolve(reportId + ".pdf");
+        Files.writeString(pdfPath, "%PDF-1.7 test");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
+        when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(true);
+
+        assertThatThrownBy(() -> reportService.delete(reportId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.CONFLICT);
+
+        assertThat(Files.exists(pdfPath)).isTrue();
+        verify(parsedObservationRepository).deleteByReportId(reportId);
+        verify(reportRepository, never()).delete(any(Report.class));
+        verify(reportRepository, never()).flush();
+    }
+
+    @Test
     void findByIdThrowsNotFoundWhenReportDoesNotExistForDefaultUser() {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -275,6 +374,23 @@ class ReportServiceTest {
         assertThatThrownBy(() -> reportService.findById(reportId))
             .isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("404 NOT_FOUND");
+    }
+
+    @Test
+    void deleteThrowsNotFoundWhenReportDoesNotExistForDefaultUser() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> reportService.delete(reportId))
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+
+        verify(parsedObservationRepository, never()).deleteByReportId(reportId);
+        verify(reportRepository, never()).delete(any(Report.class));
     }
 
     private static Report report(String reportId, UUID userId, String originalFilename, String reportDate) {

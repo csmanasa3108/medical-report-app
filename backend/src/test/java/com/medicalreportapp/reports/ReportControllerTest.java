@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -202,6 +203,34 @@ class ReportControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(reportId.toString()))
             .andExpect(jsonPath("$.originalFilename").value("lab-report-july.pdf"));
+    }
+
+    @Test
+    void deleteReturnsSuccessResponse() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        when(reportService.delete(reportId)).thenReturn(DeleteReportResponse.deleted(reportId));
+
+        mockMvc.perform(delete("/api/reports/{reportId}", reportId))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$.status").value("DELETED"));
+
+        verify(reportService).delete(reportId);
+    }
+
+    @Test
+    void deleteReturnsConflictWhenReportHasConfirmedParsedObservations() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        when(reportService.delete(reportId)).thenThrow(new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "Report has confirmed parsed observations and cannot be deleted"
+        ));
+
+        mockMvc.perform(delete("/api/reports/{reportId}", reportId))
+            .andExpect(status().isConflict());
     }
 
     @Test
