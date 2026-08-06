@@ -25,9 +25,9 @@ const dashboardActions = [
     meta: "Manual entry"
   },
   {
-    title: "View Hemoglobin Trend",
-    description: "Open the current trend view for longitudinal comparison.",
-    to: "/tests/00000000-0000-4000-8000-000000000101/trend",
+    title: "View Trends",
+    description: "Open trend views for longitudinal lab comparisons.",
+    to: "/trends",
     tone: "teal",
     meta: "Trend analytics"
   }

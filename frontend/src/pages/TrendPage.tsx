@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getLabTrend, LabTrendResponse } from "../api/client";
+import { Link, useParams } from "react-router-dom";
+import {
+  getLabTrend,
+  getTests,
+  LabTrendResponse,
+  TestCatalogResponse
+} from "../api/client";
 
 type ChartPoint = {
   date: string;
@@ -13,6 +18,10 @@ type Summary = {
   absoluteChange: number | null;
   percentChange: number | null;
 };
+
+function getCatalogTestName(test: TestCatalogResponse | undefined) {
+  return test?.displayName || test?.canonicalName || test?.name || "";
+}
 
 function formatNumber(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -179,6 +188,7 @@ function TrendLineChart({ points, unit }: { points: ChartPoint[]; unit: string }
 function TrendPage() {
   const { testId } = useParams();
   const [trend, setTrend] = useState<LabTrendResponse | null>(null);
+  const [tests, setTests] = useState<TestCatalogResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -195,10 +205,22 @@ function TrendPage() {
     setIsLoading(true);
     setErrorMessage("");
 
-    getLabTrend(testId)
-      .then((trendResponse) => {
-        if (isCurrent) {
-          setTrend(trendResponse);
+    Promise.allSettled([getLabTrend(testId), getTests()])
+      .then(([trendResult, testsResult]) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        if (trendResult.status === "rejected") {
+          throw trendResult.reason;
+        }
+
+        setTrend(trendResult.value);
+
+        if (testsResult.status === "fulfilled") {
+          setTests(testsResult.value);
+        } else {
+          setTests([]);
         }
       })
       .catch((error: unknown) => {
@@ -236,8 +258,14 @@ function TrendPage() {
     () => (trend ? getSummary(trend, points) : null),
     [points, trend]
   );
-  const trendUnit = trend?.unit ?? "";
-  const trendTitle = trend ? `${trend.testName} Trend` : "Trend";
+  const selectedTest = useMemo(
+    () => tests.find((test) => test.id === (trend?.testId ?? testId)),
+    [testId, tests, trend?.testId]
+  );
+  const trendName =
+    getCatalogTestName(selectedTest) || trend?.testName?.trim() || "Selected Test";
+  const trendUnit = trend?.unit ?? selectedTest?.defaultUnit ?? "";
+  const trendTitle = trend ? `${trendName} Trend` : "Trend";
 
   return (
     <section className="page-section">
@@ -263,7 +291,12 @@ function TrendPage() {
                   : "Review diagnostic values over time."}
               </p>
             </div>
-            {trendUnit ? <span className="unit-badge">{trendUnit}</span> : null}
+            <div className="trend-header-actions">
+              {trendUnit ? <span className="unit-badge">{trendUnit}</span> : null}
+              <Link className="button-link secondary" to="/trends">
+                Back to Trends
+              </Link>
+            </div>
           </div>
 
           <dl className="trend-summary">
@@ -287,7 +320,7 @@ function TrendPage() {
 
           {points.length === 0 ? (
             <div className="trend-chart-empty">
-              No trend points were returned for this test.
+              No trend data yet for this test.
             </div>
           ) : (
             <section className="trend-chart-card" aria-label="Trend chart">

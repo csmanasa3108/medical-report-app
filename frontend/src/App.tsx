@@ -5,6 +5,7 @@ import NewReportPage from "./pages/NewReportPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import ReportsListPage from "./pages/ReportsListPage";
 import TrendPage from "./pages/TrendPage";
+import TrendsPage from "./pages/TrendsPage";
 import soveraHealthWordmark from "./assets/brand/soverahealth-wordmark.png";
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           </NavLink>
           <NavLink to="/reports/new">Upload Report</NavLink>
           <NavLink to="/observations/new">Add Observation</NavLink>
+          <NavLink to="/trends">Trends</NavLink>
         </nav>
       </header>
 
@@ -37,6 +39,7 @@ function App() {
           <Route path="/reports/new" element={<NewReportPage />} />
           <Route path="/reports/:reportId" element={<ReportDetailPage />} />
           <Route path="/observations/new" element={<AddObservationPage />} />
+          <Route path="/trends" element={<TrendsPage />} />
           <Route path="/tests/:testId/trend" element={<TrendPage />} />
         </Routes>
       </main>

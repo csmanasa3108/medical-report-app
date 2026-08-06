@@ -630,6 +630,83 @@ h2 {
   font-weight: 700;
 }
 
+.trends-state-message {
+  margin-top: 0;
+}
+
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.trend-test-card {
+  display: flex;
+  min-width: 0;
+  min-height: 196px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-9);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(180deg, var(--color-white), var(--color-surface-soft)),
+    var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.trend-test-card h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.trend-test-category + h3 {
+  margin-top: var(--space-2);
+}
+
+.trend-test-category {
+  margin: 0;
+  color: var(--color-primary-deep);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.trend-test-meta {
+  margin: var(--space-7) 0 0;
+}
+
+.trend-test-meta div {
+  min-width: 0;
+}
+
+.trend-test-meta dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.trend-test-meta dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--card-radius);
+  color: var(--color-text-muted);
+  background: var(--color-white);
+}
+
 .trend-header {
   display: flex;
   align-items: flex-start;
@@ -640,6 +717,15 @@ h2 {
 
 .trend-header h2 {
   margin-bottom: 0;
+}
+
+.trend-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
 }
 
 .unit-badge {
@@ -1098,6 +1184,7 @@ h2 {
 
 @media (max-width: 1000px) {
   .dashboard-action-grid,
+  .trends-grid,
   .trend-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1135,6 +1222,10 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .trends-grid {
+    grid-template-columns: 1fr;
+  }
+
   .form-card,
   .trend-chart-card {
     padding: var(--space-7);
@@ -1154,6 +1245,10 @@ h2 {
 
   .trend-header {
     flex-direction: column;
+  }
+
+  .trend-header-actions {
+    justify-content: flex-start;
   }
 
   .parsed-observations-actions {
