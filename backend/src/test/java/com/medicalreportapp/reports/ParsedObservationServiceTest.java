@@ -120,6 +120,49 @@ class ParsedObservationServiceTest {
     }
 
     @Test
+    void parseDeduplicatesCandidatesWithinSingleRun() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID hemoglobinId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID glucoseId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        Report report = report(reportId, userId);
+        report.markTextExtracted("""
+            Hemoglobin 12.8 g/dL 12.0 - 15.5
+            Hemoglobin 12.80 g/dL 12.0 - 15.5
+            Glucose 91 mg/dL 70 - 99
+            Glucose 91.0000 mg/dL 70 - 99
+            """, Instant.parse("2026-07-10T13:00:00Z"));
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
+            new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
+            new TestCatalogMatch(glucoseId, "glucose", "Glucose", "mg/dL")
+        ));
+        when(parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(reportId, ParsedObservationStatus.CONFIRMED))
+            .thenReturn(List.of());
+        AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of());
+        when(parsedObservationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+            .thenAnswer(invocation -> {
+                storedObservations.set(invocation.getArgument(0));
+                return invocation.getArgument(0);
+            });
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenAnswer(invocation -> storedObservations.get());
+
+        List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
+
+        ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(parsedObservationRepository).saveAll(observationsCaptor.capture());
+
+        assertThat(observationsCaptor.getValue()).hasSize(2);
+        assertThat(observationsCaptor.getValue()).extracting(ParsedObservation::getRawTestName)
+            .containsExactly("Hemoglobin", "Glucose");
+        assertThat(responses).extracting(ParsedObservationResponse::rawTestName)
+            .containsExactly("Hemoglobin", "Glucose");
+    }
+
+    @Test
     void parseSkipsCandidatesAlreadyConfirmedByMatchedTest() {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -134,6 +177,7 @@ class ParsedObservationServiceTest {
             LocalDate.parse("2026-07-09"),
             new BigDecimal("12.8000")
         );
+        confirmedObservation.setUnit(" g/dL ");
         confirmedObservation.markConfirmed(UUID.fromString("66666666-6666-6666-6666-666666666666"), Instant.parse("2026-07-10T15:00:00Z"));
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);

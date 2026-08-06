@@ -8,7 +8,10 @@ import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -79,11 +82,11 @@ class ParsedObservationService {
                 observation.getReferenceRange(),
                 observation.getStatus()
             ))
-            .filter(observation -> !duplicatesConfirmedObservation(observation, confirmedObservations))
             .toList();
+        List<ParsedObservation> uniqueParsedObservations = deduplicateParsedObservations(parsedObservations, confirmedObservations);
 
-        if (!parsedObservations.isEmpty()) {
-            parsedObservationRepository.saveAll(parsedObservations);
+        if (!uniqueParsedObservations.isEmpty()) {
+            parsedObservationRepository.saveAll(uniqueParsedObservations);
         }
 
         return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
@@ -194,43 +197,22 @@ class ParsedObservationService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 
-    private static boolean duplicatesConfirmedObservation(
-        ParsedObservation candidate,
+    private static List<ParsedObservation> deduplicateParsedObservations(
+        List<ParsedObservation> candidates,
         List<ParsedObservation> confirmedObservations
     ) {
-        return confirmedObservations.stream()
-            .anyMatch(confirmedObservation -> duplicatesConfirmedObservation(candidate, confirmedObservation));
-    }
-
-    private static boolean duplicatesConfirmedObservation(
-        ParsedObservation candidate,
-        ParsedObservation confirmedObservation
-    ) {
-        if (!Objects.equals(candidate.getObservedAt(), confirmedObservation.getObservedAt())
-            || !sameNumericValue(candidate.getNumericValue(), confirmedObservation.getNumericValue())
-            || !Objects.equals(candidate.getUnit(), confirmedObservation.getUnit())) {
-            return false;
+        Map<ParsedObservationDeduplicationKey, ParsedObservation> uniqueObservations = new LinkedHashMap<>();
+        for (ParsedObservation confirmedObservation : confirmedObservations) {
+            uniqueObservations.put(ParsedObservationDeduplicationKey.from(confirmedObservation), confirmedObservation);
         }
 
-        if (candidate.getMatchedTestId() != null) {
-            return Objects.equals(candidate.getMatchedTestId(), confirmedObservation.getMatchedTestId());
+        for (ParsedObservation candidate : candidates) {
+            uniqueObservations.putIfAbsent(ParsedObservationDeduplicationKey.from(candidate), candidate);
         }
 
-        return sameRawTestName(candidate.getRawTestName(), confirmedObservation.getRawTestName());
-    }
-
-    private static boolean sameNumericValue(BigDecimal left, BigDecimal right) {
-        if (left == null || right == null) {
-            return left == right;
-        }
-        return left.compareTo(right) == 0;
-    }
-
-    private static boolean sameRawTestName(String left, String right) {
-        if (left == null || right == null) {
-            return left == right;
-        }
-        return left.trim().equalsIgnoreCase(right.trim());
+        return uniqueObservations.values().stream()
+            .filter(observation -> observation.getStatus() != ParsedObservationStatus.CONFIRMED)
+            .toList();
     }
 
     private static ReferenceBounds parseReferenceBounds(String referenceRange) {
@@ -267,6 +249,70 @@ class ParsedObservationService {
 
         private boolean isUnknown() {
             return BigDecimal.ZERO.compareTo(low) == 0 && BigDecimal.ZERO.compareTo(high) == 0;
+        }
+    }
+
+    private record ParsedObservationDeduplicationKey(
+        UUID matchedTestId,
+        String rawTestName,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit
+    ) {
+
+        private static ParsedObservationDeduplicationKey from(ParsedObservation observation) {
+            UUID matchedTestId = observation.getMatchedTestId();
+            return new ParsedObservationDeduplicationKey(
+                matchedTestId,
+                matchedTestId == null ? normalizeRawTestName(observation.getRawTestName()) : null,
+                observation.getObservedAt(),
+                observation.getNumericValue(),
+                trimToNull(observation.getUnit())
+            );
+        }
+
+        private static String normalizeRawTestName(String rawTestName) {
+            String trimmedValue = trimToNull(rawTestName);
+            return trimmedValue == null ? null : trimmedValue.toLowerCase(Locale.ROOT);
+        }
+
+        private static String trimToNull(String value) {
+            if (value == null) {
+                return null;
+            }
+            String trimmedValue = value.trim();
+            return trimmedValue.isEmpty() ? null : trimmedValue;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof ParsedObservationDeduplicationKey otherKey)) {
+                return false;
+            }
+            return Objects.equals(matchedTestId, otherKey.matchedTestId)
+                && Objects.equals(rawTestName, otherKey.rawTestName)
+                && Objects.equals(observedAt, otherKey.observedAt)
+                && sameNumericValue(numericValue, otherKey.numericValue)
+                && Objects.equals(unit, otherKey.unit);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(matchedTestId, rawTestName, observedAt, numericValueHash(), unit);
+        }
+
+        private boolean sameNumericValue(BigDecimal left, BigDecimal right) {
+            if (left == null || right == null) {
+                return left == right;
+            }
+            return left.compareTo(right) == 0;
+        }
+
+        private int numericValueHash() {
+            return numericValue == null ? 0 : numericValue.stripTrailingZeros().hashCode();
         }
     }
 }

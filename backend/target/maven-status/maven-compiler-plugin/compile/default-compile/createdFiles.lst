@@ -1,4 +1,5 @@
 com/medicalreportapp/reports/Report.class
+com/medicalreportapp/reports/ParsedObservationService$ParsedObservationDeduplicationKey.class
 com/medicalreportapp/testcatalog/TestCatalogEntry.class
 com/medicalreportapp/reports/ReportResponse.class
 com/medicalreportapp/observations/LabObservationAnalyticsController.class
