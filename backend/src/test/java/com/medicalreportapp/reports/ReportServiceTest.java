@@ -274,6 +274,39 @@ class ReportServiceTest {
     }
 
     @Test
+    void markExtractionFailedStoresFailureStatusWithoutChangingReportStatus() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", reportUploadDirectory.resolve(reportId + ".pdf"));
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReportResponse response = reportService.markExtractionFailed(reportId);
+
+        assertThat(response.extractionStatus()).isEqualTo("EXTRACTION_FAILED");
+        assertThat(response.status()).isEqualTo("UPLOADED");
+    }
+
+    @Test
+    void markProcessingFailedStoresFailureStatusWithoutChangingReportStatus() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", reportUploadDirectory.resolve(reportId + ".pdf"));
+        report.markTextExtracted("Hemoglobin 13.4 g/dL", Instant.parse("2026-07-10T13:00:00Z"));
+
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReportResponse response = reportService.markProcessingFailed(reportId);
+
+        assertThat(response.extractionStatus()).isEqualTo("PROCESSING_FAILED");
+        assertThat(response.status()).isEqualTo("TEXT_EXTRACTED");
+    }
+
+    @Test
     void deleteRemovesUnconfirmedParsedObservationsReportAndStoredFile() throws Exception {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");

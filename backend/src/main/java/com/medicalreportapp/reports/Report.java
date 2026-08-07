@@ -149,4 +149,12 @@ class Report {
         this.extractedAt = extractedAt;
         this.status = ReportStatus.TEXT_EXTRACTED;
     }
+
+    void markExtractionFailed() {
+        this.extractionStatus = "EXTRACTION_FAILED";
+    }
+
+    void markProcessingFailed() {
+        this.extractionStatus = "PROCESSING_FAILED";
+    }
 }

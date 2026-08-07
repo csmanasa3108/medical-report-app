@@ -135,6 +135,20 @@ class ReportService {
     }
 
     @Transactional
+    public ReportResponse markExtractionFailed(UUID reportId) {
+        Report report = findReportForDefaultUser(reportId);
+        report.markExtractionFailed();
+        return ReportResponse.from(reportRepository.saveAndFlush(report));
+    }
+
+    @Transactional
+    public ReportResponse markProcessingFailed(UUID reportId) {
+        Report report = findReportForDefaultUser(reportId);
+        report.markProcessingFailed();
+        return ReportResponse.from(reportRepository.saveAndFlush(report));
+    }
+
+    @Transactional
     public DeleteReportResponse delete(UUID reportId) {
         Report report = findReportForDefaultUserForUpdate(reportId);
         if (parsedObservationRepository.existsByReportIdAndStatus(report.getId(), ParsedObservationStatus.CONFIRMED)) {

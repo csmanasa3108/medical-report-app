@@ -18,6 +18,7 @@ com/medicalreportapp/reports/ParsedObservationParser.class
 com/medicalreportapp/reports/ReportTextResponse.class
 com/medicalreportapp/testcatalog/TestCatalogRepository.class
 com/medicalreportapp/reports/UpdateParsedObservationRequest.class
+com/medicalreportapp/reports/ReportUploadProcessingService.class
 com/medicalreportapp/reports/ParsedObservationService$ReferenceBounds.class
 com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/reports/ParsedObservation.class

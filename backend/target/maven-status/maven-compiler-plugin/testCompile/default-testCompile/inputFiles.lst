@@ -5,5 +5,6 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/reports/ParsedObservationServiceTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/reports/ReportControllerTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/reports/ReportServiceTest.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/reports/ReportUploadProcessingServiceTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/testcatalog/TestCatalogControllerTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/testcatalog/TestCatalogServiceTest.java

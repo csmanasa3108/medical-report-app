@@ -24,10 +24,16 @@ import org.springframework.web.multipart.MultipartFile;
 class ReportController {
 
     private final ReportService reportService;
+    private final ReportUploadProcessingService reportUploadProcessingService;
     private final ParsedObservationService parsedObservationService;
 
-    ReportController(ReportService reportService, ParsedObservationService parsedObservationService) {
+    ReportController(
+        ReportService reportService,
+        ReportUploadProcessingService reportUploadProcessingService,
+        ParsedObservationService parsedObservationService
+    ) {
         this.reportService = reportService;
+        this.reportUploadProcessingService = reportUploadProcessingService;
         this.parsedObservationService = parsedObservationService;
     }
 
@@ -44,7 +50,7 @@ class ReportController {
         @RequestParam(value = "reportDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reportDate,
         @RequestParam(value = "labName", required = false) @Size(max = 255) String labName
     ) {
-        return reportService.upload(new UploadReportRequest(file, reportDate, labName));
+        return reportUploadProcessingService.uploadAndProcess(new UploadReportRequest(file, reportDate, labName));
     }
 
     @GetMapping("/api/reports")

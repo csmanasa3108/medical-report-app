@@ -46,6 +46,9 @@ class ReportControllerTest {
     private ReportService reportService;
 
     @MockitoBean
+    private ReportUploadProcessingService reportUploadProcessingService;
+
+    @MockitoBean
     private ParsedObservationService parsedObservationService;
 
     @Test
@@ -98,7 +101,7 @@ class ReportControllerTest {
             "%PDF-1.7 test".getBytes()
         );
 
-        when(reportService.upload(any(UploadReportRequest.class))).thenReturn(new ReportResponse(
+        when(reportUploadProcessingService.uploadAndProcess(any(UploadReportRequest.class))).thenReturn(new ReportResponse(
             reportId,
             "lab-report-july.pdf",
             LocalDate.parse("2026-07-09"),
@@ -107,9 +110,9 @@ class ReportControllerTest {
             "uploads/reports/" + reportId + ".pdf",
             "application/pdf",
             13L,
-            null,
-            null,
-            "UPLOADED",
+            "TEXT_EXTRACTED",
+            Instant.parse("2026-07-10T13:00:00Z"),
+            "TEXT_EXTRACTED",
             Instant.parse("2026-07-10T12:00:00Z")
         ));
 
@@ -127,9 +130,10 @@ class ReportControllerTest {
             .andExpect(jsonPath("$.storagePath").value("uploads/reports/" + reportId + ".pdf"))
             .andExpect(jsonPath("$.contentType").value("application/pdf"))
             .andExpect(jsonPath("$.fileSizeBytes").value(13))
-            .andExpect(jsonPath("$.status").value("UPLOADED"));
+            .andExpect(jsonPath("$.extractionStatus").value("TEXT_EXTRACTED"))
+            .andExpect(jsonPath("$.status").value("TEXT_EXTRACTED"));
 
-        verify(reportService).upload(any(UploadReportRequest.class));
+        verify(reportUploadProcessingService).uploadAndProcess(any(UploadReportRequest.class));
     }
 
     @Test
@@ -141,7 +145,7 @@ class ReportControllerTest {
             "not a pdf".getBytes()
         );
 
-        when(reportService.upload(any(UploadReportRequest.class)))
+        when(reportUploadProcessingService.uploadAndProcess(any(UploadReportRequest.class)))
             .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only PDF uploads are supported"));
 
         mockMvc.perform(multipart("/api/reports/upload").file(file))
