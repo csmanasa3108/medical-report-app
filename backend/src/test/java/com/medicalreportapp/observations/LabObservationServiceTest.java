@@ -2,6 +2,7 @@ package com.medicalreportapp.observations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +52,13 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+            userId,
+            testId,
+            request.observedAt(),
+            request.numericValue(),
+            request.unit()
+        )).thenReturn(Optional.empty());
         when(labObservationRepository.save(any(LabObservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LabObservationResponse response = labObservationService.create(request);
@@ -80,6 +88,96 @@ class LabObservationServiceTest {
         assertThat(response.referenceLow()).isEqualByComparingTo("70");
         assertThat(response.referenceHigh()).isEqualByComparingTo("99");
         assertThat(response.abnormalFlag()).isEqualTo("normal");
+    }
+
+    @Test
+    void createReturnsExistingManualObservationWhenExactDuplicateExists() {
+        UUID observationId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        CreateLabObservationRequest request = new CreateLabObservationRequest(
+            testId,
+            LocalDate.parse("2026-07-01"),
+            new BigDecimal("95.5"),
+            "mg/dL",
+            new BigDecimal("70"),
+            new BigDecimal("99"),
+            "normal"
+        );
+        LabObservation existingObservation = new LabObservation(
+            observationId,
+            userId,
+            testId,
+            request.observedAt(),
+            new BigDecimal("95.5000"),
+            "mg/dL",
+            new BigDecimal("70"),
+            new BigDecimal("99"),
+            "normal"
+        );
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+            userId,
+            testId,
+            request.observedAt(),
+            request.numericValue(),
+            request.unit()
+        )).thenReturn(Optional.of(existingObservation));
+
+        LabObservationResponse response = labObservationService.create(request);
+
+        assertThat(response.id()).isEqualTo(observationId);
+        assertThat(response.testId()).isEqualTo(testId);
+        assertThat(response.numericValue()).isEqualByComparingTo("95.5000");
+        verify(labObservationRepository, never()).save(any(LabObservation.class));
+    }
+
+    @Test
+    void createReturnsExistingReportObservationForSameSourceParsedObservation() {
+        UUID observationId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        CreateLabObservationCommand command = new CreateLabObservationCommand(
+            testId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            new BigDecimal("12.0"),
+            new BigDecimal("15.5"),
+            "normal",
+            reportId,
+            parsedObservationId
+        );
+        LabObservation existingObservation = new LabObservation(
+            observationId,
+            userId,
+            testId,
+            command.observedAt(),
+            command.numericValue(),
+            "g/dL",
+            command.referenceLow(),
+            command.referenceHigh(),
+            command.abnormalFlag(),
+            reportId,
+            parsedObservationId
+        );
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+            userId,
+            parsedObservationId
+        )).thenReturn(Optional.of(existingObservation));
+
+        LabObservationResponse response = labObservationService.create(command);
+
+        assertThat(response.id()).isEqualTo(observationId);
+        assertThat(response.testName()).isEqualTo("Hemoglobin");
+        verify(labObservationRepository, never()).save(any(LabObservation.class));
     }
 
     @Test

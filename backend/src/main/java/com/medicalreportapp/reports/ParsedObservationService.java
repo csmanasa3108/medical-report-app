@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -155,6 +156,13 @@ class ParsedObservationService {
             }
             return labObservationService.findByIdForDefaultUser(parsedObservation.getConfirmedObservationId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed lab observation not found"));
+        }
+        Optional<LabObservationResponse> existingSourceObservation =
+            labObservationService.findBySourceParsedObservationIdForDefaultUser(parsedObservation.getId());
+        if (existingSourceObservation.isPresent()) {
+            LabObservationResponse response = existingSourceObservation.get();
+            parsedObservation.markConfirmed(response.id(), Instant.now());
+            return response;
         }
         if (parsedObservation.getMatchedTestId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parsed observation has no matched test");

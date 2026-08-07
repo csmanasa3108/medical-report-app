@@ -44,10 +44,16 @@ public class LabObservationService {
         if (!StringUtils.hasText(unit)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lab observation has no unit");
         }
+        UUID userId = defaultUserProvider.getDefaultUserId();
+
+        Optional<LabObservation> existingObservation = findExistingObservation(command, userId, test.id(), unit);
+        if (existingObservation.isPresent()) {
+            return toResponse(existingObservation.get());
+        }
 
         LabObservation observation = new LabObservation(
             UUID.randomUUID(),
-            defaultUserProvider.getDefaultUserId(),
+            userId,
             test.id(),
             command.observedAt(),
             command.numericValue(),
@@ -66,11 +72,16 @@ public class LabObservationService {
     @Transactional(readOnly = true)
     public Optional<LabObservationResponse> findByIdForDefaultUser(UUID observationId) {
         return labObservationRepository.findByIdAndUserId(observationId, defaultUserProvider.getDefaultUserId())
-            .map(observation -> {
-                TestCatalogLookup test = testCatalogLookupService.findById(observation.getTestId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed lab observation has no matching test"));
-                return LabObservationResponse.from(observation, test.displayName());
-            });
+            .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<LabObservationResponse> findBySourceParsedObservationIdForDefaultUser(UUID sourceParsedObservationId) {
+        return labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+                defaultUserProvider.getDefaultUserId(),
+                sourceParsedObservationId
+            )
+            .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -149,5 +160,37 @@ public class LabObservationService {
 
     private static boolean isReportSource(LabObservationTrendPointProjection observation) {
         return observation.getReportId() != null || observation.getParsedObservationId() != null;
+    }
+
+    private Optional<LabObservation> findExistingObservation(
+        CreateLabObservationCommand command,
+        UUID userId,
+        UUID testId,
+        String unit
+    ) {
+        if (command.sourceParsedObservationId() != null) {
+            return labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+                userId,
+                command.sourceParsedObservationId()
+            );
+        }
+
+        if (command.sourceReportId() == null) {
+            return labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+                userId,
+                testId,
+                command.observedAt(),
+                command.numericValue(),
+                unit
+            );
+        }
+
+        return Optional.empty();
+    }
+
+    private LabObservationResponse toResponse(LabObservation observation) {
+        TestCatalogLookup test = testCatalogLookupService.findById(observation.getTestId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed lab observation has no matching test"));
+        return LabObservationResponse.from(observation, test.displayName());
     }
 }

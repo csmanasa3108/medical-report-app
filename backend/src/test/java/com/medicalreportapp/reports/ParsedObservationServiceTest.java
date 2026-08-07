@@ -3,6 +3,7 @@ package com.medicalreportapp.reports;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +62,9 @@ class ParsedObservationServiceTest {
             labObservationService,
             defaultUserProvider
         );
+        lenient()
+            .when(labObservationService.findBySourceParsedObservationIdForDefaultUser(any(UUID.class)))
+            .thenReturn(Optional.empty());
     }
 
     @Test
@@ -659,6 +663,47 @@ class ParsedObservationServiceTest {
         LabObservationResponse response = parsedObservationService.confirm(parsedObservationId);
 
         assertThat(response).isEqualTo(existingResponse);
+        verify(labObservationService, never()).create(any(CreateLabObservationCommand.class));
+    }
+
+    @Test
+    void confirmReturnsExistingLabObservationForSameSourceParsedObservationAndMarksConfirmed() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID labObservationId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ParsedObservation parsedObservation = parsedObservation(
+            parsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8")
+        );
+        LabObservationResponse existingResponse = new LabObservationResponse(
+            labObservationId,
+            testId,
+            "Hemoglobin",
+            LocalDate.parse("2026-07-08"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            new BigDecimal("12.0"),
+            new BigDecimal("15.5"),
+            "normal"
+        );
+
+        when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(labObservationService.findBySourceParsedObservationIdForDefaultUser(parsedObservationId))
+            .thenReturn(Optional.of(existingResponse));
+
+        LabObservationResponse response = parsedObservationService.confirm(parsedObservationId);
+
+        assertThat(response).isEqualTo(existingResponse);
+        assertThat(parsedObservation.getStatus()).isEqualTo(ParsedObservationStatus.CONFIRMED);
+        assertThat(parsedObservation.getConfirmedObservationId()).isEqualTo(labObservationId);
+        assertThat(parsedObservation.getConfirmedAt()).isNotNull();
         verify(labObservationService, never()).create(any(CreateLabObservationCommand.class));
     }
 

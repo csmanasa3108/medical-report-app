@@ -1,5 +1,7 @@
 package com.medicalreportapp.observations;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +13,19 @@ import org.springframework.data.repository.query.Param;
 interface LabObservationRepository extends JpaRepository<LabObservation, UUID> {
 
     Optional<LabObservation> findByIdAndUserId(UUID id, UUID userId);
+
+    Optional<LabObservation> findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+        UUID userId,
+        UUID testId,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit
+    );
+
+    Optional<LabObservation> findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+        UUID userId,
+        UUID sourceParsedObservationId
+    );
 
     @Query(value = """
         select
