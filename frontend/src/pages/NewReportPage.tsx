@@ -1,7 +1,6 @@
 import { FormEvent, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ReportResponse, uploadReport } from "../api/client";
-import StatusBadge from "../components/StatusBadge";
+import { Link, useNavigate } from "react-router-dom";
+import { uploadReport } from "../api/client";
 
 type ReportFormState = {
   reportDate: string;
@@ -14,12 +13,10 @@ const initialFormState: ReportFormState = {
 };
 
 function NewReportPage() {
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState<ReportFormState>(initialFormState);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadedReport, setUploadedReport] = useState<ReportResponse | null>(
-    null
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -31,7 +28,6 @@ function NewReportPage() {
   }
 
   function handleFileChange(file: File | null) {
-    setUploadedReport(null);
     setErrorMessage("");
 
     if (!file) {
@@ -51,7 +47,6 @@ function NewReportPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
-    setUploadedReport(null);
 
     const labName = form.labName.trim();
 
@@ -74,12 +69,17 @@ function NewReportPage() {
         labName
       });
 
-      setUploadedReport(createdReport);
       setSelectedFile(null);
       setForm(initialFormState);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      navigate(`/reports/${createdReport.id}`, {
+        state: {
+          successMessage:
+            "Report uploaded and parsed. Review observations before confirming."
+        }
+      });
     } catch (error: unknown) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to upload the report."
@@ -96,7 +96,8 @@ function NewReportPage() {
           <p className="eyebrow">Reports</p>
           <h2 className="page-title">Upload Diagnostic Report</h2>
           <p className="page-description">
-            Add a PDF report and optional metadata for diagnostic review.
+            Add a PDF report and optional metadata. Uploaded reports are parsed
+            automatically for review.
           </p>
         </div>
         <Link className="button-link secondary" to="/reports">
@@ -144,28 +145,6 @@ function NewReportPage() {
           </button>
         </form>
       </div>
-
-      {uploadedReport ? (
-        <div className="status-message success-message" role="status">
-          <p>Report uploaded successfully.</p>
-          <dl className="upload-summary">
-            <div>
-              <dt>Filename</dt>
-              <dd>{uploadedReport.originalFilename}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>
-                <StatusBadge status={uploadedReport.status} />
-              </dd>
-            </div>
-          </dl>
-          <div className="message-actions">
-            <Link to={`/reports/${uploadedReport.id}`}>View report</Link>
-            <Link to="/reports">Back to reports</Link>
-          </div>
-        </div>
-      ) : null}
 
       {errorMessage ? (
         <p className="status-message error-message" role="alert">

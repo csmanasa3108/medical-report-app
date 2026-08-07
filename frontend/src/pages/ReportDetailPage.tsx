@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   confirmParsedObservation,
   deleteReport,
-  extractReportText,
   getParsedObservations,
   getReport,
   getTests,
-  parseReportObservations,
   ParsedObservationResponse,
   ReportResponse,
   TestCatalogResponse,
@@ -24,6 +22,10 @@ type ParsedObservationEditForm = {
   numericValue: string;
   unit: string;
   referenceRange: string;
+};
+
+type ReportDetailLocationState = {
+  successMessage?: string;
 };
 
 function formatDate(value: string | null) {
@@ -138,6 +140,7 @@ function buildUpdatePayload(
 
 function ReportDetailPage() {
   const { reportId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [parsedObservations, setParsedObservations] = useState<
@@ -147,9 +150,7 @@ function ReportDetailPage() {
   const [isTestsLoading, setIsTestsLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isParsedLoading, setIsParsedLoading] = useState(false);
-  const [activeAction, setActiveAction] = useState<
-    "extract" | "parse" | "refresh" | null
-  >(null);
+  const [activeAction, setActiveAction] = useState<"refresh" | null>(null);
   const [confirmingObservationId, setConfirmingObservationId] = useState<
     string | null
   >(null);
@@ -173,6 +174,8 @@ function ReportDetailPage() {
   const [deleteErrorMessage, setDeleteErrorMessage] = useState("");
   const [parsedErrorMessage, setParsedErrorMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const uploadSuccessMessage = (location.state as ReportDetailLocationState | null)
+    ?.successMessage;
 
   useEffect(() => {
     let isCurrent = true;
@@ -322,52 +325,6 @@ function ReportDetailPage() {
     }
   }
 
-  async function handleExtractText() {
-    if (!reportId) {
-      return;
-    }
-
-    setActiveAction("extract");
-    setParsedErrorMessage("");
-    setActionMessage("");
-
-    try {
-      await extractReportText(reportId);
-      await refreshReportAndParsedObservations();
-      setActionMessage("Text extraction completed.");
-    } catch (error: unknown) {
-      setParsedErrorMessage(
-        error instanceof Error ? error.message : "Unable to extract report text."
-      );
-    } finally {
-      setActiveAction(null);
-    }
-  }
-
-  async function handleParseObservations() {
-    if (!reportId) {
-      return;
-    }
-
-    setActiveAction("parse");
-    setParsedErrorMessage("");
-    setActionMessage("");
-
-    try {
-      await parseReportObservations(reportId);
-      await refreshReportAndParsedObservations();
-      setActionMessage("Observation parsing completed.");
-    } catch (error: unknown) {
-      setParsedErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to parse observations."
-      );
-    } finally {
-      setActiveAction(null);
-    }
-  }
-
   async function handleRefreshParsedObservations() {
     setActiveAction("refresh");
     setIsParsedLoading(true);
@@ -454,7 +411,7 @@ function ReportDetailPage() {
           <p className="eyebrow">Reports</p>
           <h2 className="page-title">Report Detail</h2>
           <p className="page-description">
-            Review report metadata and confirm parsed diagnostic observations.
+            Review report metadata and confirm extracted diagnostic observations.
           </p>
         </div>
         <div className="report-detail-actions">
@@ -517,39 +474,31 @@ function ReportDetailPage() {
 
       {!isLoading && !errorMessage && report ? (
         <section className="parsed-observations-section">
+          {uploadSuccessMessage ? (
+            <p className="status-message success-message" role="status">
+              {uploadSuccessMessage}
+            </p>
+          ) : null}
+
           <div className="parsed-observations-header">
             <div>
               <h3>Parsed Observations</h3>
               <p className="parse-observations-helper">
-                Re-parsing refreshes unconfirmed rows and keeps confirmed rows.
+                Review extracted observations before confirming them into trends.
               </p>
             </div>
-          </div>
-          <div className="parsed-observations-actions">
-            <button
-              className="action-button"
-              type="button"
-              onClick={handleExtractText}
-              disabled={isActionRunning}
-            >
-              {activeAction === "extract" ? "Extracting..." : "Extract text"}
-            </button>
-            <button
-              className="action-button"
-              type="button"
-              onClick={handleParseObservations}
-              disabled={isActionRunning}
-            >
-              {activeAction === "parse" ? "Parsing..." : "Parse / Re-parse"}
-            </button>
-            <button
-              className="action-button secondary"
-              type="button"
-              onClick={handleRefreshParsedObservations}
-              disabled={isActionRunning}
-            >
-              {activeAction === "refresh" ? "Refreshing..." : "Refresh"}
-            </button>
+            <div className="parsed-observations-actions">
+              <button
+                className="action-button secondary"
+                type="button"
+                onClick={handleRefreshParsedObservations}
+                disabled={isActionRunning}
+              >
+                {activeAction === "refresh"
+                  ? "Refreshing..."
+                  : "Refresh parsed observations"}
+              </button>
+            </div>
           </div>
 
           {actionMessage ? (
@@ -570,7 +519,7 @@ function ReportDetailPage() {
 
           {!isParsedLoading && parsedObservations.length === 0 ? (
             <p className="status-message">
-              No parsed observations exist for this report yet.
+              No observations were detected in this report.
             </p>
           ) : null}
 
