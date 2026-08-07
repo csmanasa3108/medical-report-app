@@ -172,7 +172,7 @@ class ReportServiceTest {
         Report olderReport = report("44444444-4444-4444-4444-444444444444", userId, "old.pdf", "2026-07-09");
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(newestReport, olderReport));
+        when(reportRepository.findByPatientUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(newestReport, olderReport));
 
         List<ReportResponse> responses = reportService.findAll();
 
@@ -187,7 +187,7 @@ class ReportServiceTest {
         Report report = report(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09");
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
 
         ReportResponse response = reportService.findById(reportId);
 
@@ -204,7 +204,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
         when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReportTextResponse response = reportService.extractText(reportId);
@@ -230,7 +230,7 @@ class ReportServiceTest {
         Report report = report(reportId.toString(), userId, "metadata-only.pdf", "2026-07-09");
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
 
         assertThatThrownBy(() -> reportService.extractText(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -246,7 +246,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", missingPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
 
         assertThatThrownBy(() -> reportService.extractText(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -263,7 +263,7 @@ class ReportServiceTest {
         report.markTextExtracted("Hemoglobin 13.4 g/dL", extractedAt);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
 
         ReportTextResponse response = reportService.findText(reportId);
 
@@ -280,7 +280,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", reportUploadDirectory.resolve(reportId + ".pdf"));
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
         when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReportResponse response = reportService.markExtractionFailed(reportId);
@@ -297,7 +297,7 @@ class ReportServiceTest {
         report.markTextExtracted("Hemoglobin 13.4 g/dL", Instant.parse("2026-07-10T13:00:00Z"));
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report));
         when(reportRepository.saveAndFlush(any(Report.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReportResponse response = reportService.markProcessingFailed(reportId);
@@ -315,7 +315,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
         when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
         when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(false);
 
@@ -337,7 +337,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", missingPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
         when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
         when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(false);
 
@@ -358,7 +358,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
         when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(true);
 
         assertThatThrownBy(() -> reportService.delete(reportId))
@@ -381,7 +381,7 @@ class ReportServiceTest {
         Report report = uploadedReport(reportId.toString(), userId, "lab-report-july.pdf", "2026-07-09", pdfPath);
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
         when(parsedObservationRepository.existsByReportIdAndStatus(reportId, ParsedObservationStatus.CONFIRMED)).thenReturn(false);
         when(parsedObservationRepository.existsByReportId(reportId)).thenReturn(true);
 
@@ -402,7 +402,7 @@ class ReportServiceTest {
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserId(reportId, userId)).thenReturn(Optional.empty());
+        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reportService.findById(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -415,7 +415,7 @@ class ReportServiceTest {
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndUserIdForUpdate(reportId, userId)).thenReturn(Optional.empty());
+        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reportService.delete(reportId))
             .isInstanceOf(ResponseStatusException.class)

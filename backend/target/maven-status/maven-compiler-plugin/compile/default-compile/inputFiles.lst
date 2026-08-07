@@ -40,3 +40,9 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogRepository.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogResponse.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/testcatalog/TestCatalogService.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/AppUser.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/AppUserRepository.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/AppUserRole.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccess.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessStatus.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/UserContextResolver.java

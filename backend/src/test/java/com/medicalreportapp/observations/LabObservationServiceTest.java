@@ -52,7 +52,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+        when(labObservationRepository.findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
             userId,
             testId,
             request.observedAt(),
@@ -118,7 +118,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+        when(labObservationRepository.findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
             userId,
             testId,
             request.observedAt(),
@@ -168,7 +168,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+        when(labObservationRepository.findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
             userId,
             parsedObservationId
         )).thenReturn(Optional.of(existingObservation));
@@ -187,7 +187,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+        when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-01", "12.0", "g/dL"),
             trendPoint("2026-07-09", "12.8", "g/dL")
         ));
@@ -218,7 +218,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of());
+        when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of());
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
 
@@ -237,7 +237,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+        when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-09", "12.8", "g/dL")
         ));
 
@@ -256,7 +256,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+        when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-01", "0", "g/dL"),
             trendPoint("2026-07-09", "12.8", "g/dL")
         ));
@@ -278,7 +278,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(new TestTrendPoint(
+        when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(new TestTrendPoint(
             LocalDate.parse("2026-07-09"),
             new BigDecimal("12.8"),
             "g/dL",

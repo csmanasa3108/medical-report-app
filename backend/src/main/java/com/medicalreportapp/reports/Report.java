@@ -22,6 +22,12 @@ class Report {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "patient_user_id")
+    private UUID patientUserId;
+
+    @Column(name = "uploaded_by_user_id")
+    private UUID uploadedByUserId;
+
     @Column(name = "original_filename", nullable = false, length = 255)
     private String originalFilename;
 
@@ -75,8 +81,40 @@ class Report {
         Long fileSizeBytes,
         ReportStatus status
     ) {
+        this(
+            id,
+            userId,
+            null,
+            null,
+            originalFilename,
+            reportDate,
+            labName,
+            storedFilename,
+            storagePath,
+            contentType,
+            fileSizeBytes,
+            status
+        );
+    }
+
+    Report(
+        UUID id,
+        UUID userId,
+        UUID patientUserId,
+        UUID uploadedByUserId,
+        String originalFilename,
+        LocalDate reportDate,
+        String labName,
+        String storedFilename,
+        String storagePath,
+        String contentType,
+        Long fileSizeBytes,
+        ReportStatus status
+    ) {
         this.id = id;
         this.userId = userId;
+        this.patientUserId = patientUserId;
+        this.uploadedByUserId = uploadedByUserId;
         this.originalFilename = originalFilename;
         this.reportDate = reportDate;
         this.labName = labName;
@@ -93,6 +131,14 @@ class Report {
 
     UUID getUserId() {
         return userId;
+    }
+
+    UUID getPatientUserId() {
+        return patientUserId == null ? userId : patientUserId;
+    }
+
+    UUID getUploadedByUserId() {
+        return uploadedByUserId;
     }
 
     String getOriginalFilename() {

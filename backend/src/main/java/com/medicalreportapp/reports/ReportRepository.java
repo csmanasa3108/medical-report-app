@@ -12,11 +12,11 @@ import org.springframework.data.repository.query.Param;
 
 interface ReportRepository extends JpaRepository<Report, UUID> {
 
-    List<Report> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    List<Report> findByPatientUserIdOrderByCreatedAtDesc(UUID patientUserId);
 
-    Optional<Report> findByIdAndUserId(UUID id, UUID userId);
+    Optional<Report> findByIdAndPatientUserId(UUID id, UUID patientUserId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select report from Report report where report.id = :id and report.userId = :userId")
-    Optional<Report> findByIdAndUserIdForUpdate(@Param("id") UUID id, @Param("userId") UUID userId);
+    @Query("select report from Report report where report.id = :id and report.patientUserId = :patientUserId")
+    Optional<Report> findByIdAndPatientUserIdForUpdate(@Param("id") UUID id, @Param("patientUserId") UUID patientUserId);
 }

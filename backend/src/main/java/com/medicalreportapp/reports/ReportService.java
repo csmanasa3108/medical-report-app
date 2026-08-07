@@ -45,9 +45,13 @@ class ReportService {
 
     @Transactional
     public ReportResponse create(CreateReportRequest request) {
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        UUID currentUserId = defaultUserProvider.getCurrentUserId();
         Report report = new Report(
             UUID.randomUUID(),
-            defaultUserProvider.getDefaultUserId(),
+            patientUserId,
+            patientUserId,
+            currentUserId,
             request.originalFilename(),
             request.reportDate(),
             request.labName(),
@@ -67,6 +71,8 @@ class ReportService {
         validateUpload(file);
 
         UUID reportId = UUID.randomUUID();
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        UUID currentUserId = defaultUserProvider.getCurrentUserId();
         String originalFilename = cleanOriginalFilename(file.getOriginalFilename());
         String storedFilename = reportId + ".pdf";
         Path storagePath = reportUploadDirectory.resolve(storedFilename);
@@ -82,7 +88,9 @@ class ReportService {
 
         Report report = new Report(
             reportId,
-            defaultUserProvider.getDefaultUserId(),
+            patientUserId,
+            patientUserId,
+            currentUserId,
             originalFilename,
             request.reportDate(),
             request.labName(),
@@ -103,7 +111,7 @@ class ReportService {
 
     @Transactional(readOnly = true)
     public List<ReportResponse> findAll() {
-        return reportRepository.findByUserIdOrderByCreatedAtDesc(defaultUserProvider.getDefaultUserId())
+        return reportRepository.findByPatientUserIdOrderByCreatedAtDesc(defaultUserProvider.getDefaultUserId())
             .stream()
             .map(ReportResponse::from)
             .toList();
@@ -174,14 +182,14 @@ class ReportService {
     }
 
     private Report findReportForDefaultUser(UUID reportId) {
-        UUID userId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndUserId(reportId, userId)
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndPatientUserId(reportId, patientUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 
     private Report findReportForDefaultUserForUpdate(UUID reportId) {
-        UUID userId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndUserIdForUpdate(reportId, userId)
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndPatientUserIdForUpdate(reportId, patientUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 

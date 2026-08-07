@@ -12,18 +12,18 @@ import org.springframework.data.repository.query.Param;
 
 interface LabObservationRepository extends JpaRepository<LabObservation, UUID> {
 
-    Optional<LabObservation> findByIdAndUserId(UUID id, UUID userId);
+    Optional<LabObservation> findByIdAndPatientUserId(UUID id, UUID patientUserId);
 
-    Optional<LabObservation> findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
-        UUID userId,
+    Optional<LabObservation> findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+        UUID patientUserId,
         UUID testId,
         LocalDate observedAt,
         BigDecimal numericValue,
         String unit
     );
 
-    Optional<LabObservation> findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
-        UUID userId,
+    Optional<LabObservation> findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
+        UUID patientUserId,
         UUID sourceParsedObservationId
     );
 
@@ -40,13 +40,13 @@ interface LabObservationRepository extends JpaRepository<LabObservation, UUID> {
         from lab_observations observation
         left join reports report
             on report.id = observation.source_report_id
-            and report.user_id = observation.user_id
-        where observation.user_id = :userId
+            and report.patient_user_id = observation.patient_user_id
+        where observation.patient_user_id = :patientUserId
             and observation.test_id = :testId
         order by observation.observed_at asc
         """, nativeQuery = true)
-    List<LabObservationTrendPointProjection> findTrendPointsByUserIdAndTestId(
-        @Param("userId") UUID userId,
+    List<LabObservationTrendPointProjection> findTrendPointsByPatientUserIdAndTestId(
+        @Param("patientUserId") UUID patientUserId,
         @Param("testId") UUID testId
     );
 }

@@ -18,6 +18,12 @@ class LabObservation {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "patient_user_id")
+    private UUID patientUserId;
+
+    @Column(name = "created_by_user_id")
+    private UUID createdByUserId;
+
     @Column(name = "test_id", nullable = false)
     private UUID testId;
 
@@ -87,8 +93,42 @@ class LabObservation {
         UUID sourceReportId,
         UUID sourceParsedObservationId
     ) {
+        this(
+            id,
+            userId,
+            null,
+            null,
+            testId,
+            observedAt,
+            numericValue,
+            unit,
+            referenceLow,
+            referenceHigh,
+            abnormalFlag,
+            sourceReportId,
+            sourceParsedObservationId
+        );
+    }
+
+    LabObservation(
+        UUID id,
+        UUID userId,
+        UUID patientUserId,
+        UUID createdByUserId,
+        UUID testId,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit,
+        BigDecimal referenceLow,
+        BigDecimal referenceHigh,
+        String abnormalFlag,
+        UUID sourceReportId,
+        UUID sourceParsedObservationId
+    ) {
         this.id = id;
         this.userId = userId;
+        this.patientUserId = patientUserId;
+        this.createdByUserId = createdByUserId;
         this.testId = testId;
         this.observedAt = observedAt;
         this.numericValue = numericValue;
@@ -106,6 +146,14 @@ class LabObservation {
 
     UUID getUserId() {
         return userId;
+    }
+
+    UUID getPatientUserId() {
+        return patientUserId == null ? userId : patientUserId;
+    }
+
+    UUID getCreatedByUserId() {
+        return createdByUserId;
     }
 
     UUID getTestId() {

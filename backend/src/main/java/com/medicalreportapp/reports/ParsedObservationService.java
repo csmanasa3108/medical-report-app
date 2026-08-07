@@ -188,7 +188,9 @@ class ParsedObservationService {
             referenceBounds.high(),
             abnormalFlag(parsedObservation.getNumericValue(), referenceBounds),
             report.getId(),
-            parsedObservation.getId()
+            parsedObservation.getId(),
+            report.getPatientUserId(),
+            defaultUserProvider.getCurrentUserId()
         ));
 
         parsedObservation.markConfirmed(response.id(), Instant.now());
@@ -196,14 +198,14 @@ class ParsedObservationService {
     }
 
     private Report findReportForDefaultUser(UUID reportId) {
-        UUID userId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndUserId(reportId, userId)
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndPatientUserId(reportId, patientUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 
     private Report findReportForDefaultUserForUpdate(UUID reportId) {
-        UUID userId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndUserIdForUpdate(reportId, userId)
+        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        return reportRepository.findByIdAndPatientUserIdForUpdate(reportId, patientUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
     }
 

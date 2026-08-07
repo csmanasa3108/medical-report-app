@@ -44,16 +44,19 @@ public class LabObservationService {
         if (!StringUtils.hasText(unit)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lab observation has no unit");
         }
-        UUID userId = defaultUserProvider.getDefaultUserId();
+        UUID patientUserId = command.patientUserId() != null ? command.patientUserId() : defaultUserProvider.getDefaultUserId();
+        UUID createdByUserId = command.createdByUserId() != null ? command.createdByUserId() : defaultUserProvider.getCurrentUserId();
 
-        Optional<LabObservation> existingObservation = findExistingObservation(command, userId, test.id(), unit);
+        Optional<LabObservation> existingObservation = findExistingObservation(command, patientUserId, test.id(), unit);
         if (existingObservation.isPresent()) {
             return toResponse(existingObservation.get());
         }
 
         LabObservation observation = new LabObservation(
             UUID.randomUUID(),
-            userId,
+            patientUserId,
+            patientUserId,
+            createdByUserId,
             test.id(),
             command.observedAt(),
             command.numericValue(),
@@ -71,13 +74,13 @@ public class LabObservationService {
 
     @Transactional(readOnly = true)
     public Optional<LabObservationResponse> findByIdForDefaultUser(UUID observationId) {
-        return labObservationRepository.findByIdAndUserId(observationId, defaultUserProvider.getDefaultUserId())
+        return labObservationRepository.findByIdAndPatientUserId(observationId, defaultUserProvider.getDefaultUserId())
             .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public Optional<LabObservationResponse> findBySourceParsedObservationIdForDefaultUser(UUID sourceParsedObservationId) {
-        return labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
+        return labObservationRepository.findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
                 defaultUserProvider.getDefaultUserId(),
                 sourceParsedObservationId
             )
@@ -89,7 +92,7 @@ public class LabObservationService {
         TestCatalogLookup test = testCatalogLookupService.findById(testId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Test catalog entry not found"));
 
-        List<LabObservationTrendPointProjection> observations = labObservationRepository.findTrendPointsByUserIdAndTestId(
+        List<LabObservationTrendPointProjection> observations = labObservationRepository.findTrendPointsByPatientUserIdAndTestId(
             defaultUserProvider.getDefaultUserId(),
             test.id()
         );
@@ -164,20 +167,20 @@ public class LabObservationService {
 
     private Optional<LabObservation> findExistingObservation(
         CreateLabObservationCommand command,
-        UUID userId,
+        UUID patientUserId,
         UUID testId,
         String unit
     ) {
         if (command.sourceParsedObservationId() != null) {
-            return labObservationRepository.findFirstByUserIdAndSourceParsedObservationIdOrderByIdAsc(
-                userId,
+            return labObservationRepository.findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
+                patientUserId,
                 command.sourceParsedObservationId()
             );
         }
 
         if (command.sourceReportId() == null) {
-            return labObservationRepository.findFirstByUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
-                userId,
+            return labObservationRepository.findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
+                patientUserId,
                 testId,
                 command.observedAt(),
                 command.numericValue(),
