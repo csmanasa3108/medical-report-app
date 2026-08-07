@@ -56,6 +56,14 @@ public class UserAccessService {
         return currentUser.getId();
     }
 
+    public AppUser requireCurrentClinician() {
+        AppUser currentUser = userContextResolver.getCurrentUser();
+        if (currentUser.getRole() != AppUserRole.CLINICIAN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only clinicians can view assigned patients");
+        }
+        return currentUser;
+    }
+
     public void requireCurrentUserCanWritePatientData(UUID patientUserId) {
         UUID currentPatientUserId = requireCurrentUserCanWritePatientData();
         if (!currentPatientUserId.equals(patientUserId)) {

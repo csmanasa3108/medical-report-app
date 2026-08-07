@@ -8,4 +8,6 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/reports/ReportUploadProcessingServiceTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/testcatalog/TestCatalogControllerTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/testcatalog/TestCatalogServiceTest.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/users/ClinicianPatientControllerTest.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/users/ClinicianPatientServiceTest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/test/java/com/medicalreportapp/users/UserAccessServiceTest.java

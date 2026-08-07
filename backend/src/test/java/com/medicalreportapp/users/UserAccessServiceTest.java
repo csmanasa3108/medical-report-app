@@ -118,6 +118,30 @@ class UserAccessServiceTest {
             .isEqualTo(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void clinicianRoleCanUseClinicianEndpoints() {
+        UUID clinicianUserId = UUID.fromString("00000000-0000-0000-0000-000000000102");
+        UserAccessService userAccessService = new UserAccessService(userContextResolver, patientClinicianAccessRepository);
+
+        AppUser clinician = user(clinicianUserId, AppUserRole.CLINICIAN);
+        when(userContextResolver.getCurrentUser()).thenReturn(clinician);
+
+        assertThat(userAccessService.requireCurrentClinician()).isEqualTo(clinician);
+    }
+
+    @Test
+    void patientRoleCannotUseClinicianEndpoints() {
+        UUID patientUserId = UUID.fromString("00000000-0000-0000-0000-000000000101");
+        UserAccessService userAccessService = new UserAccessService(userContextResolver, patientClinicianAccessRepository);
+
+        when(userContextResolver.getCurrentUser()).thenReturn(user(patientUserId, AppUserRole.PATIENT));
+
+        assertThatThrownBy(userAccessService::requireCurrentClinician)
+            .isInstanceOf(ResponseStatusException.class)
+            .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
     private static AppUser user(UUID userId, AppUserRole role) {
         return new AppUser(userId, "test-" + userId + "@example.local", "Test User", role);
     }

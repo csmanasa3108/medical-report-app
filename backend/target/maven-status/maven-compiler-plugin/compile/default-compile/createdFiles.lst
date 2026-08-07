@@ -12,6 +12,7 @@ com/medicalreportapp/testcatalog/TestCatalogMatch.class
 com/medicalreportapp/reports/ParsedObservationResponse.class
 com/medicalreportapp/health/HealthController.class
 com/medicalreportapp/reports/ParsedObservationParser.class
+com/medicalreportapp/users/ClinicianPatientService.class
 com/medicalreportapp/reports/ReportTextResponse.class
 com/medicalreportapp/reports/ReportUploadProcessingService.class
 com/medicalreportapp/reports/ParsedObservationService$ReferenceBounds.class
@@ -25,6 +26,7 @@ com/medicalreportapp/reports/ReportController.class
 com/medicalreportapp/users/UserAccessService.class
 com/medicalreportapp/reports/Report.class
 com/medicalreportapp/reports/ReportResponse.class
+com/medicalreportapp/users/AssignedPatientResponse.class
 com/medicalreportapp/MedicalReportAppBackendApplication.class
 com/medicalreportapp/reports/CreateReportRequest.class
 com/medicalreportapp/users/AppUser.class
@@ -36,7 +38,9 @@ com/medicalreportapp/observations/CreateLabObservationCommand.class
 com/medicalreportapp/reports/ReportService.class
 com/medicalreportapp/testcatalog/TestCatalogRepository.class
 com/medicalreportapp/reports/UpdateParsedObservationRequest.class
+com/medicalreportapp/users/AssignedPatientProjection.class
 com/medicalreportapp/reports/ParsedObservation.class
 com/medicalreportapp/testcatalog/TestCatalogService.class
 com/medicalreportapp/testcatalog/TestCatalogController.class
 com/medicalreportapp/reports/UploadReportRequest.class
+com/medicalreportapp/users/ClinicianPatientController.class
