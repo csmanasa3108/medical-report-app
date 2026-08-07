@@ -10,6 +10,8 @@ export type DevUser = {
 };
 
 const DEV_USER_STORAGE_KEY = "soverahealth.devUser";
+const SELECTED_ASSIGNED_PATIENT_STORAGE_KEY =
+  "soverahealth.selectedAssignedPatient";
 
 export const DEV_USERS: DevUser[] = [
   {
@@ -27,7 +29,6 @@ export const DEV_USERS: DevUser[] = [
 ];
 
 const DEFAULT_DEV_USER = DEV_USERS[0];
-const DEMO_PATIENT_USER_ID = "00000000-0000-0000-0000-000000000101";
 
 export function getCurrentDevUser(): DevUser {
   if (typeof window === "undefined") {
@@ -67,12 +68,31 @@ function appendQueryParam(path: string, key: string, value: string): string {
   return `${path}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
-function withDevPatientScope(path: string): string {
-  if (getCurrentDevUser().role !== "CLINICIAN") {
-    return path;
+export function getSelectedAssignedPatientId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
   }
 
-  return appendQueryParam(path, "patientId", DEMO_PATIENT_USER_ID);
+  return window.localStorage.getItem(SELECTED_ASSIGNED_PATIENT_STORAGE_KEY);
+}
+
+export function setSelectedAssignedPatientId(patientId: string) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(
+      SELECTED_ASSIGNED_PATIENT_STORAGE_KEY,
+      patientId
+    );
+  }
+}
+
+export function clearSelectedAssignedPatientId() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(SELECTED_ASSIGNED_PATIENT_STORAGE_KEY);
+  }
+}
+
+function withPatientScope(path: string, patientId?: string | null): string {
+  return patientId ? appendQueryParam(path, "patientId", patientId) : path;
 }
 
 export type TestCatalogResponse = {
@@ -144,6 +164,16 @@ export type ReportResponse = {
   labName: string | null;
   status: string;
   createdAt: string;
+};
+
+export type AssignedPatientResponse = {
+  patientId: string;
+  displayName: string;
+  email: string;
+  role: string;
+  accessStatus: string;
+  reportCount?: number | null;
+  latestReportDate?: string | null;
 };
 
 export type ParsedObservationResponse = {
@@ -289,16 +319,23 @@ export function createObservation(payload: CreateLabObservationRequest) {
   });
 }
 
-export function getLabTrend(testId: string) {
+export function getAssignedPatients() {
+  return apiRequest<AssignedPatientResponse[]>("/api/clinician/patients");
+}
+
+export function getLabTrend(testId: string, patientId?: string | null) {
   return apiRequest<LabTrendResponse>(
-    withDevPatientScope(
-      `/api/analytics/tests/${encodeURIComponent(testId)}/trend`
+    withPatientScope(
+      `/api/analytics/tests/${encodeURIComponent(testId)}/trend`,
+      patientId
     )
   );
 }
 
-export function getReports() {
-  return apiRequest<ReportResponse[]>(withDevPatientScope("/api/reports"));
+export function getReports(patientId?: string | null) {
+  return apiRequest<ReportResponse[]>(
+    withPatientScope("/api/reports", patientId)
+  );
 }
 
 export function getReport(reportId: string) {

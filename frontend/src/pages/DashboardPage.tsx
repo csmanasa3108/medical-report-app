@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getReports } from "../api/client";
-import type { DevUser } from "../api/client";
+import {
+  clearSelectedAssignedPatientId,
+  formatLoadErrorMessage,
+  getAssignedPatients,
+  getReports,
+  getSelectedAssignedPatientId,
+  setSelectedAssignedPatientId
+} from "../api/client";
+import type { AssignedPatientResponse, DevUser } from "../api/client";
 
 type DashboardAction = {
   title: string;
@@ -70,6 +77,32 @@ type DashboardPageProps = {
   devUser: DevUser;
 };
 
+function formatOptionalDate(value: string | null | undefined) {
+  if (!value) {
+    return "No report date";
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
+}
+
+function formatReportCount(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "Reports unavailable";
+  }
+
+  return `${value.toLocaleString()} ${value === 1 ? "report" : "reports"}`;
+}
+
 function PatientDashboard({
   reportCountValue,
   reportCountError
@@ -105,13 +138,78 @@ function PatientDashboard({
   );
 }
 
-function ClinicianDashboard({
-  reportCountValue,
-  reportCountError
-}: {
-  reportCountValue: string;
-  reportCountError: string;
-}) {
+function ClinicianDashboard() {
+  const [assignedPatients, setAssignedPatients] = useState<
+    AssignedPatientResponse[]
+  >([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
+    getSelectedAssignedPatientId
+  );
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [patientsErrorMessage, setPatientsErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    setIsLoadingPatients(true);
+    setPatientsErrorMessage("");
+
+    getAssignedPatients()
+      .then((patients) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setAssignedPatients(patients);
+
+        const storedPatientId = getSelectedAssignedPatientId();
+        const storedPatientExists = patients.some(
+          (patient) => patient.patientId === storedPatientId
+        );
+        const nextSelectedPatientId =
+          patients.length === 1
+            ? patients[0].patientId
+            : storedPatientExists
+              ? storedPatientId
+              : null;
+
+        setSelectedPatientId(nextSelectedPatientId);
+
+        if (nextSelectedPatientId) {
+          setSelectedAssignedPatientId(nextSelectedPatientId);
+        } else {
+          clearSelectedAssignedPatientId();
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setPatientsErrorMessage(
+          formatLoadErrorMessage(error, "Unable to load assigned patients.")
+        );
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoadingPatients(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  const selectedPatient =
+    assignedPatients.find((patient) => patient.patientId === selectedPatientId) ??
+    null;
+
+  function handleSelectPatient(patientId: string) {
+    setSelectedPatientId(patientId);
+    setSelectedAssignedPatientId(patientId);
+  }
+
   return (
     <section className="dashboard-page">
       <div className="dashboard-hero clinician-dashboard-hero">
@@ -125,21 +223,76 @@ function ClinicianDashboard({
         </div>
       </div>
 
-      <div className="dashboard-summary-grid clinician-summary-grid" aria-label="Clinician dashboard summary">
+      <div
+        className="dashboard-summary-grid clinician-summary-grid"
+        aria-label="Clinician dashboard summary"
+      >
         <article className="dashboard-summary-card">
           <span className="dashboard-summary-label">Selected patient summary</span>
-          <strong className="dashboard-summary-value">{reportCountValue}</strong>
-          <span className="dashboard-summary-detail">
-            {reportCountError || "Reports available for the current assigned patient"}
-          </span>
+          {selectedPatient ? (
+            <>
+              <strong className="selected-patient-name">
+                {selectedPatient.displayName}
+              </strong>
+              <span className="dashboard-summary-detail">
+                {selectedPatient.email}
+              </span>
+              <span className="dashboard-summary-detail">
+                {formatReportCount(selectedPatient.reportCount)}
+              </span>
+              <span className="dashboard-summary-detail">
+                Latest report: {formatOptionalDate(selectedPatient.latestReportDate)}
+              </span>
+            </>
+          ) : (
+            <span className="dashboard-summary-detail">
+              Select an assigned patient first.
+            </span>
+          )}
         </article>
-        <article className="dashboard-placeholder-card">
+        <section className="assigned-patient-panel" aria-label="Assigned patients">
           <span className="dashboard-summary-label">Assigned Patients</span>
-          <p>
-            Assigned patient list will appear here once the patient assignment
-            API is added.
-          </p>
-        </article>
+          {isLoadingPatients ? (
+            <p className="status-message">Loading assigned patients...</p>
+          ) : null}
+          {!isLoadingPatients && patientsErrorMessage ? (
+            <p className="status-message error-message" role="alert">
+              {patientsErrorMessage}
+            </p>
+          ) : null}
+          {!isLoadingPatients &&
+          !patientsErrorMessage &&
+          assignedPatients.length === 0 ? (
+            <p className="status-message">No assigned patients yet.</p>
+          ) : null}
+          {!isLoadingPatients &&
+          !patientsErrorMessage &&
+          assignedPatients.length > 0 ? (
+            <div className="assigned-patient-list">
+              {assignedPatients.map((patient) => (
+                <button
+                  className={
+                    patient.patientId === selectedPatientId
+                      ? "assigned-patient-card selected"
+                      : "assigned-patient-card"
+                  }
+                  key={patient.patientId}
+                  type="button"
+                  onClick={() => handleSelectPatient(patient.patientId)}
+                >
+                  <span className="assigned-patient-name">
+                    {patient.displayName}
+                  </span>
+                  <span>{patient.email}</span>
+                  <span>{formatReportCount(patient.reportCount)}</span>
+                  <span>
+                    Latest report: {formatOptionalDate(patient.latestReportDate)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
       </div>
 
       <DashboardActionGrid actions={clinicianDashboardActions} />
@@ -177,6 +330,16 @@ function DashboardPage({ devUser }: DashboardPageProps) {
   useEffect(() => {
     let isCurrent = true;
 
+    if (devUser.role !== "PATIENT") {
+      setIsLoadingReportCount(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    setIsLoadingReportCount(true);
+    setReportCountError("");
+
     getReports()
       .then((reports) => {
         if (isCurrent) {
@@ -197,7 +360,7 @@ function DashboardPage({ devUser }: DashboardPageProps) {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [devUser.role]);
 
   const reportCountValue = isLoadingReportCount
     ? "Loading"
@@ -206,12 +369,7 @@ function DashboardPage({ devUser }: DashboardPageProps) {
       : reportCount?.toLocaleString() ?? "Unavailable";
 
   if (devUser.role === "CLINICIAN") {
-    return (
-      <ClinicianDashboard
-        reportCountValue={reportCountValue}
-        reportCountError={reportCountError}
-      />
-    );
+    return <ClinicianDashboard />;
   }
 
   return (

@@ -3,10 +3,16 @@ import { Link, useParams } from "react-router-dom";
 import {
   formatLoadErrorMessage,
   getLabTrend,
+  getSelectedAssignedPatientId,
   getTests,
   LabTrendResponse,
   TestCatalogResponse
 } from "../api/client";
+import type { DevUser } from "../api/client";
+
+type TrendPageProps = {
+  devUser: DevUser;
+};
 
 type ChartPoint = {
   observedAt: string;
@@ -313,12 +319,14 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
   );
 }
 
-function TrendPage() {
+function TrendPage({ devUser }: TrendPageProps) {
   const { testId } = useParams();
   const [trend, setTrend] = useState<LabTrendResponse | null>(null);
   const [tests, setTests] = useState<TestCatalogResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const isClinician = devUser.role === "CLINICIAN";
+  const selectedPatientId = isClinician ? getSelectedAssignedPatientId() : null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -330,10 +338,20 @@ function TrendPage() {
       return;
     }
 
+    if (isClinician && !selectedPatientId) {
+      setTrend(null);
+      setTests([]);
+      setErrorMessage("Select an assigned patient first.");
+      setIsLoading(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
     setIsLoading(true);
     setErrorMessage("");
 
-    Promise.allSettled([getLabTrend(testId), getTests()])
+    Promise.allSettled([getLabTrend(testId, selectedPatientId), getTests()])
       .then(([trendResult, testsResult]) => {
         if (!isCurrent) {
           return;
@@ -369,7 +387,7 @@ function TrendPage() {
     return () => {
       isCurrent = false;
     };
-  }, [testId]);
+  }, [isClinician, selectedPatientId, testId]);
 
   const selectedTest = useMemo(
     () => tests.find((test) => test.id === (trend?.testId ?? testId)),

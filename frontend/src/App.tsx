@@ -115,8 +115,11 @@ function App() {
               )
             }
           />
-          <Route path="/trends" element={<TrendsPage />} />
-          <Route path="/tests/:testId/trend" element={<TrendPage />} />
+          <Route path="/trends" element={<TrendsPage devUser={selectedDevUser} />} />
+          <Route
+            path="/tests/:testId/trend"
+            element={<TrendPage devUser={selectedDevUser} />}
+          />
         </Routes>
       </main>
     </div>

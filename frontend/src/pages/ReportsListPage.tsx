@@ -4,6 +4,7 @@ import {
   deleteReport,
   formatLoadErrorMessage,
   getReports,
+  getSelectedAssignedPatientId,
   ReportResponse
 } from "../api/client";
 import type { DevUser } from "../api/client";
@@ -60,11 +61,23 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const isClinician = devUser.role === "CLINICIAN";
+  const selectedPatientId = isClinician ? getSelectedAssignedPatientId() : null;
 
   useEffect(() => {
     let isCurrent = true;
 
-    getReports()
+    setIsLoading(true);
+    setErrorMessage("");
+    setReports([]);
+
+    if (isClinician && !selectedPatientId) {
+      setIsLoading(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    getReports(selectedPatientId)
       .then((reportList) => {
         if (isCurrent) {
           setReports(reportList);
@@ -88,7 +101,7 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [isClinician, selectedPatientId]);
 
   useEffect(() => {
     const state = location.state as ReportsLocationState | null;
@@ -163,11 +176,18 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
         </p>
       ) : null}
 
-      {!isLoading && !errorMessage && reports.length === 0 ? (
+      {!isLoading && !errorMessage && isClinician && !selectedPatientId ? (
+        <p className="status-message">Select an assigned patient first.</p>
+      ) : null}
+
+      {!isLoading &&
+      !errorMessage &&
+      (!isClinician || selectedPatientId) &&
+      reports.length === 0 ? (
         <p className="status-message">No reports have been created yet.</p>
       ) : null}
 
-      {!isLoading && reports.length > 0 ? (
+      {!isLoading && !errorMessage && reports.length > 0 ? (
         <div className="table-scroll">
           <table className="reports-table">
             <thead>
