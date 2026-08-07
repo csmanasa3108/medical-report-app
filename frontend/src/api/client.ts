@@ -1,5 +1,80 @@
 export const API_BASE_URL = "http://localhost:8080";
 
+export type DevUserKey = "patient" | "clinician";
+
+export type DevUser = {
+  key: DevUserKey;
+  label: string;
+  role: "PATIENT" | "CLINICIAN";
+  userId: string;
+};
+
+const DEV_USER_STORAGE_KEY = "soverahealth.devUser";
+
+export const DEV_USERS: DevUser[] = [
+  {
+    key: "patient",
+    label: "Demo Patient",
+    role: "PATIENT",
+    userId: "00000000-0000-0000-0000-000000000101"
+  },
+  {
+    key: "clinician",
+    label: "Demo Clinician",
+    role: "CLINICIAN",
+    userId: "00000000-0000-0000-0000-000000000102"
+  }
+];
+
+const DEFAULT_DEV_USER = DEV_USERS[0];
+const DEMO_PATIENT_USER_ID = "00000000-0000-0000-0000-000000000101";
+
+export function getCurrentDevUser(): DevUser {
+  if (typeof window === "undefined") {
+    return DEFAULT_DEV_USER;
+  }
+
+  const storedKey = window.localStorage.getItem(DEV_USER_STORAGE_KEY);
+  return DEV_USERS.find((user) => user.key === storedKey) ?? DEFAULT_DEV_USER;
+}
+
+export function setCurrentDevUser(key: DevUserKey): DevUser {
+  const selectedUser =
+    DEV_USERS.find((user) => user.key === key) ?? DEFAULT_DEV_USER;
+
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(DEV_USER_STORAGE_KEY, selectedUser.key);
+  }
+
+  return selectedUser;
+}
+
+function buildJsonHeaders(headers?: HeadersInit): Headers {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Content-Type", "application/json");
+  requestHeaders.set("X-User-Id", getCurrentDevUser().userId);
+  return requestHeaders;
+}
+
+function buildDevUserHeaders(headers?: HeadersInit): Headers {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("X-User-Id", getCurrentDevUser().userId);
+  return requestHeaders;
+}
+
+function appendQueryParam(path: string, key: string, value: string): string {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
+function withDevPatientScope(path: string): string {
+  if (getCurrentDevUser().role !== "CLINICIAN") {
+    return path;
+  }
+
+  return appendQueryParam(path, "patientId", DEMO_PATIENT_USER_ID);
+}
+
 export type TestCatalogResponse = {
   id: string;
   canonicalName: string;
@@ -103,12 +178,10 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const { headers, ...requestOptions } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers
-    },
-    ...options
+    ...requestOptions,
+    headers: buildJsonHeaders(headers)
   });
 
   if (!response.ok) {
@@ -132,12 +205,10 @@ export async function apiRequest<T>(
 }
 
 async function apiCommand(path: string, options: RequestInit = {}) {
+  const { headers, ...requestOptions } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers
-    },
-    ...options
+    ...requestOptions,
+    headers: buildJsonHeaders(headers)
   });
 
   if (!response.ok) {
@@ -171,12 +242,14 @@ export function createObservation(payload: CreateLabObservationRequest) {
 
 export function getLabTrend(testId: string) {
   return apiRequest<LabTrendResponse>(
-    `/api/analytics/tests/${encodeURIComponent(testId)}/trend`
+    withDevPatientScope(
+      `/api/analytics/tests/${encodeURIComponent(testId)}/trend`
+    )
   );
 }
 
 export function getReports() {
-  return apiRequest<ReportResponse[]>("/api/reports");
+  return apiRequest<ReportResponse[]>(withDevPatientScope("/api/reports"));
 }
 
 export function getReport(reportId: string) {
@@ -252,6 +325,7 @@ export async function uploadReport(payload: UploadReportRequest) {
 
   const response = await fetch(`${API_BASE_URL}/api/reports/upload`, {
     method: "POST",
+    headers: buildDevUserHeaders(),
     body: formData
   });
 
