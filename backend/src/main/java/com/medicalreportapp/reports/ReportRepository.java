@@ -19,4 +19,8 @@ interface ReportRepository extends JpaRepository<Report, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select report from Report report where report.id = :id and report.patientUserId = :patientUserId")
     Optional<Report> findByIdAndPatientUserIdForUpdate(@Param("id") UUID id, @Param("patientUserId") UUID patientUserId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select report from Report report where report.id = :id")
+    Optional<Report> findByIdForUpdate(@Param("id") UUID id);
 }

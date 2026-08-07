@@ -45,7 +45,7 @@ class ReportService {
 
     @Transactional
     public ReportResponse create(CreateReportRequest request) {
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        UUID patientUserId = defaultUserProvider.requireCurrentUserCanWritePatientData();
         UUID currentUserId = defaultUserProvider.getCurrentUserId();
         Report report = new Report(
             UUID.randomUUID(),
@@ -71,7 +71,7 @@ class ReportService {
         validateUpload(file);
 
         UUID reportId = UUID.randomUUID();
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
+        UUID patientUserId = defaultUserProvider.requireCurrentUserCanWritePatientData();
         UUID currentUserId = defaultUserProvider.getCurrentUserId();
         String originalFilename = cleanOriginalFilename(file.getOriginalFilename());
         String storedFilename = reportId + ".pdf";
@@ -111,7 +111,13 @@ class ReportService {
 
     @Transactional(readOnly = true)
     public List<ReportResponse> findAll() {
-        return reportRepository.findByPatientUserIdOrderByCreatedAtDesc(defaultUserProvider.getDefaultUserId())
+        return findAll(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReportResponse> findAll(UUID requestedPatientId) {
+        UUID patientUserId = defaultUserProvider.resolveReadablePatientId(requestedPatientId);
+        return reportRepository.findByPatientUserIdOrderByCreatedAtDesc(patientUserId)
             .stream()
             .map(ReportResponse::from)
             .toList();
@@ -124,7 +130,7 @@ class ReportService {
 
     @Transactional
     public ReportTextResponse extractText(UUID reportId) {
-        Report report = findReportForDefaultUser(reportId);
+        Report report = findReportForCurrentUserForWrite(reportId);
         Path storagePath = resolveStoragePath(report);
 
         if (!Files.exists(storagePath)) {
@@ -144,21 +150,21 @@ class ReportService {
 
     @Transactional
     public ReportResponse markExtractionFailed(UUID reportId) {
-        Report report = findReportForDefaultUser(reportId);
+        Report report = findReportForCurrentUserForWrite(reportId);
         report.markExtractionFailed();
         return ReportResponse.from(reportRepository.saveAndFlush(report));
     }
 
     @Transactional
     public ReportResponse markProcessingFailed(UUID reportId) {
-        Report report = findReportForDefaultUser(reportId);
+        Report report = findReportForCurrentUserForWrite(reportId);
         report.markProcessingFailed();
         return ReportResponse.from(reportRepository.saveAndFlush(report));
     }
 
     @Transactional
     public DeleteReportResponse delete(UUID reportId) {
-        Report report = findReportForDefaultUserForUpdate(reportId);
+        Report report = findReportForCurrentUserForWrite(reportId);
         if (parsedObservationRepository.existsByReportIdAndStatus(report.getId(), ParsedObservationStatus.CONFIRMED)) {
             throw new ResponseStatusException(
                 HttpStatus.CONFLICT,
@@ -182,15 +188,17 @@ class ReportService {
     }
 
     private Report findReportForDefaultUser(UUID reportId) {
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndPatientUserId(reportId, patientUserId)
+        Report report = reportRepository.findById(reportId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+        defaultUserProvider.requireCurrentUserCanReadPatientData(report.getPatientUserId());
+        return report;
     }
 
-    private Report findReportForDefaultUserForUpdate(UUID reportId) {
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndPatientUserIdForUpdate(reportId, patientUserId)
+    private Report findReportForCurrentUserForWrite(UUID reportId) {
+        Report report = reportRepository.findByIdForUpdate(reportId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+        defaultUserProvider.requireCurrentUserCanWritePatientData(report.getPatientUserId());
+        return report;
     }
 
     private static Path resolveStoragePath(Report report) {

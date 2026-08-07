@@ -170,7 +170,7 @@ class ReportControllerTest {
         UUID newestReportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID olderReportId = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
-        when(reportService.findAll()).thenReturn(List.of(
+        when(reportService.findAll(null)).thenReturn(List.of(
             new ReportResponse(newestReportId, "new.pdf", LocalDate.parse("2026-07-10"), "Quest Diagnostics", null, null, null, null, null, null, "CREATED", Instant.parse("2026-07-10T12:00:00Z")),
             new ReportResponse(olderReportId, "old.pdf", LocalDate.parse("2026-07-09"), "Labcorp", null, null, null, null, null, null, "CREATED", Instant.parse("2026-07-09T12:00:00Z"))
         ));

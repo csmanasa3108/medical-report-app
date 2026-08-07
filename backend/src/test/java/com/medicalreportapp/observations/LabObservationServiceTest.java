@@ -2,6 +2,7 @@ package com.medicalreportapp.observations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,7 +52,7 @@ class LabObservationServiceTest {
         );
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
             userId,
             testId,
@@ -117,7 +118,7 @@ class LabObservationServiceTest {
         );
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Glucose", "mg/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findFirstByPatientUserIdAndTestIdAndObservedAtAndNumericValueAndUnitAndSourceReportIdIsNullAndSourceParsedObservationIdIsNullOrderByIdAsc(
             userId,
             testId,
@@ -167,7 +168,7 @@ class LabObservationServiceTest {
         );
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
             userId,
             parsedObservationId
@@ -186,7 +187,7 @@ class LabObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-01", "12.0", "g/dL"),
             trendPoint("2026-07-09", "12.8", "g/dL")
@@ -217,7 +218,7 @@ class LabObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of());
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
@@ -236,7 +237,7 @@ class LabObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-09", "12.8", "g/dL")
         ));
@@ -255,7 +256,7 @@ class LabObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(
             trendPoint("2026-07-01", "0", "g/dL"),
             trendPoint("2026-07-09", "12.8", "g/dL")
@@ -277,7 +278,7 @@ class LabObservationServiceTest {
         UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        allowDefaultUserAccess(userId);
         when(labObservationRepository.findTrendPointsByPatientUserIdAndTestId(userId, testId)).thenReturn(List.of(new TestTrendPoint(
             LocalDate.parse("2026-07-09"),
             new BigDecimal("12.8"),
@@ -363,5 +364,12 @@ class LabObservationServiceTest {
         public UUID getParsedObservationId() {
             return parsedObservationId;
         }
+    }
+
+    private void allowDefaultUserAccess(UUID userId) {
+        lenient().when(defaultUserProvider.getCurrentUserId()).thenReturn(userId);
+        lenient().when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        lenient().when(defaultUserProvider.resolveReadablePatientId(null)).thenReturn(userId);
+        lenient().when(defaultUserProvider.requireCurrentUserCanWritePatientData()).thenReturn(userId);
     }
 }

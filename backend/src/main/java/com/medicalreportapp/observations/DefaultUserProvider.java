@@ -1,6 +1,6 @@
 package com.medicalreportapp.observations;
 
-import com.medicalreportapp.users.UserContextResolver;
+import com.medicalreportapp.users.UserAccessService;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -8,17 +8,33 @@ import org.springframework.stereotype.Component;
 @Component
 public class DefaultUserProvider {
 
-    private final UserContextResolver userContextResolver;
+    private final UserAccessService userAccessService;
 
-    public DefaultUserProvider(UserContextResolver userContextResolver) {
-        this.userContextResolver = userContextResolver;
+    public DefaultUserProvider(UserAccessService userAccessService) {
+        this.userAccessService = userAccessService;
     }
 
     public UUID getDefaultUserId() {
-        return userContextResolver.getCurrentPatientUserId();
+        return userAccessService.resolveReadablePatientId(null);
     }
 
     public UUID getCurrentUserId() {
-        return userContextResolver.getCurrentUserId();
+        return userAccessService.getCurrentUserId();
+    }
+
+    public UUID resolveReadablePatientId(UUID requestedPatientId) {
+        return userAccessService.resolveReadablePatientId(requestedPatientId);
+    }
+
+    public UUID requireCurrentUserCanWritePatientData() {
+        return userAccessService.requireCurrentUserCanWritePatientData();
+    }
+
+    public void requireCurrentUserCanWritePatientData(UUID patientUserId) {
+        userAccessService.requireCurrentUserCanWritePatientData(patientUserId);
+    }
+
+    public void requireCurrentUserCanReadPatientData(UUID patientUserId) {
+        userAccessService.requireCurrentUserCanReadPatientData(patientUserId);
     }
 }

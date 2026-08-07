@@ -81,8 +81,8 @@ class ParsedObservationServiceTest {
             Vitamin D 24 ng/mL 30 - 100
             """, Instant.parse("2026-07-10T13:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
             new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
             new TestCatalogMatch(wbcId, "wbc", "WBC", "10^3/uL")
@@ -137,8 +137,8 @@ class ParsedObservationServiceTest {
             Glucose 91.0000 mg/dL 70 - 99
             """, Instant.parse("2026-07-10T13:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
             new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
             new TestCatalogMatch(glucoseId, "glucose", "Glucose", "mg/dL")
@@ -184,8 +184,8 @@ class ParsedObservationServiceTest {
         confirmedObservation.setUnit(" g/dL ");
         confirmedObservation.markConfirmed(UUID.fromString("66666666-6666-6666-6666-666666666666"), Instant.parse("2026-07-10T15:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
             new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL")
         ));
@@ -219,8 +219,8 @@ class ParsedObservationServiceTest {
         );
         confirmedObservation.markConfirmed(UUID.fromString("66666666-6666-6666-6666-666666666666"), Instant.parse("2026-07-10T15:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of());
         when(parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(reportId, ParsedObservationStatus.CONFIRMED))
             .thenReturn(List.of(confirmedObservation));
@@ -252,8 +252,8 @@ class ParsedObservationServiceTest {
         );
         confirmedObservation.markConfirmed(confirmedLabObservationId, Instant.parse("2026-07-10T15:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
             new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL")
         ));
@@ -304,8 +304,8 @@ class ParsedObservationServiceTest {
         );
         confirmedObservation.markConfirmed(UUID.fromString("66666666-6666-6666-6666-666666666666"), Instant.parse("2026-07-10T15:00:00Z"));
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
         when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
             new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
             new TestCatalogMatch(wbcId, "wbc", "WBC", "10^3/uL")
@@ -337,8 +337,8 @@ class ParsedObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         assertThatThrownBy(() -> parsedObservationService.parse(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -351,8 +351,8 @@ class ParsedObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserIdForUpdate(reportId, userId)).thenReturn(Optional.empty());
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> parsedObservationService.parse(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -365,8 +365,8 @@ class ParsedObservationServiceTest {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.empty());
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> parsedObservationService.findByReportId(reportId))
             .isInstanceOf(ResponseStatusException.class)
@@ -398,8 +398,8 @@ class ParsedObservationServiceTest {
         request.setReferenceRange("4.0 - 11.0");
 
         when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(testCatalogLookupService.findById(matchedTestId))
             .thenReturn(Optional.of(new TestCatalogLookup(matchedTestId, "WBC", "10^3/uL")));
 
@@ -438,8 +438,8 @@ class ParsedObservationServiceTest {
         request.setReferenceRange(null);
 
         when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         ParsedObservationResponse response = parsedObservationService.update(parsedObservationId, request);
 
@@ -484,8 +484,8 @@ class ParsedObservationServiceTest {
         request.setRawValue("13.2");
 
         when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         assertThatThrownBy(() -> parsedObservationService.update(parsedObservationId, request))
             .isInstanceOf(ResponseStatusException.class)
@@ -510,8 +510,8 @@ class ParsedObservationServiceTest {
         request.setMatchedTestId(matchedTestId);
 
         when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(testCatalogLookupService.findById(matchedTestId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> parsedObservationService.update(parsedObservationId, request))
@@ -544,8 +544,8 @@ class ParsedObservationServiceTest {
 
         when(parsedObservationRepository.findById(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(testCatalogLookupService.findById(matchedTestId))
             .thenReturn(Optional.of(new TestCatalogLookup(matchedTestId, "WBC", "10^3/uL")));
         when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
@@ -593,8 +593,8 @@ class ParsedObservationServiceTest {
         );
 
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
             labObservationId,
             testId,
@@ -656,8 +656,8 @@ class ParsedObservationServiceTest {
         );
 
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(labObservationService.findByIdForDefaultUser(labObservationId)).thenReturn(Optional.of(existingResponse));
 
         LabObservationResponse response = parsedObservationService.confirm(parsedObservationId);
@@ -693,8 +693,8 @@ class ParsedObservationServiceTest {
         );
 
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(labObservationService.findBySourceParsedObservationIdForDefaultUser(parsedObservationId))
             .thenReturn(Optional.of(existingResponse));
 
@@ -723,8 +723,8 @@ class ParsedObservationServiceTest {
         parsedObservation.markConfirmed();
 
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
             .isInstanceOf(ResponseStatusException.class)
@@ -748,8 +748,8 @@ class ParsedObservationServiceTest {
         );
 
         when(parsedObservationRepository.findByIdForUpdate(parsedObservationId)).thenReturn(Optional.of(parsedObservation));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
         when(labObservationService.create(any(CreateLabObservationCommand.class))).thenReturn(new LabObservationResponse(
             UUID.randomUUID(),
             testId,
@@ -782,8 +782,8 @@ class ParsedObservationServiceTest {
             LocalDate.parse("2026-07-08"),
             new BigDecimal("12.8")
         )));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
             .isInstanceOf(ResponseStatusException.class)
@@ -805,8 +805,8 @@ class ParsedObservationServiceTest {
             LocalDate.parse("2026-07-08"),
             null
         )));
-        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(reportRepository.findByIdAndPatientUserId(reportId, userId)).thenReturn(Optional.of(report(reportId, userId)));
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report(reportId, userId)));
 
         assertThatThrownBy(() -> parsedObservationService.confirm(parsedObservationId))
             .isInstanceOf(ResponseStatusException.class)
@@ -860,5 +860,12 @@ class ParsedObservationServiceTest {
             "12.0 - 15.5",
             ParsedObservationStatus.NEEDS_REVIEW
         );
+    }
+
+    private void allowDefaultUserAccess(UUID userId) {
+        lenient().when(defaultUserProvider.getCurrentUserId()).thenReturn(userId);
+        lenient().when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        lenient().when(defaultUserProvider.resolveReadablePatientId(null)).thenReturn(userId);
+        lenient().when(defaultUserProvider.requireCurrentUserCanWritePatientData()).thenReturn(userId);
     }
 }

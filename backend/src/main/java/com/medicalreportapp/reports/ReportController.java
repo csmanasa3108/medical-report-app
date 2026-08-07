@@ -54,8 +54,8 @@ class ReportController {
     }
 
     @GetMapping("/api/reports")
-    public List<ReportResponse> findAll() {
-        return reportService.findAll();
+    public List<ReportResponse> findAll(@RequestParam(value = "patientId", required = false) UUID patientId) {
+        return reportService.findAll(patientId);
     }
 
     @GetMapping("/api/reports/{reportId}")

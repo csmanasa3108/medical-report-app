@@ -2,6 +2,7 @@ com/medicalreportapp/reports/ParsedObservationService$ParsedObservationDeduplica
 com/medicalreportapp/testcatalog/TestCatalogEntry.class
 com/medicalreportapp/users/UserContextResolver.class
 com/medicalreportapp/reports/DeleteReportResponse.class
+com/medicalreportapp/users/PatientClinicianAccessRepository.class
 com/medicalreportapp/users/PatientClinicianAccessStatus.class
 com/medicalreportapp/observations/LabObservationAnalyticsController.class
 com/medicalreportapp/observations/LabObservationTrendPointResponse.class
@@ -21,6 +22,7 @@ com/medicalreportapp/users/PatientClinicianAccess.class
 com/medicalreportapp/reports/ParsedObservationService.class
 com/medicalreportapp/reports/ReportRepository.class
 com/medicalreportapp/reports/ReportController.class
+com/medicalreportapp/users/UserAccessService.class
 com/medicalreportapp/reports/Report.class
 com/medicalreportapp/reports/ReportResponse.class
 com/medicalreportapp/MedicalReportAppBackendApplication.class

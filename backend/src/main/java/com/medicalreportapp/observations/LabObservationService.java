@@ -44,7 +44,8 @@ public class LabObservationService {
         if (!StringUtils.hasText(unit)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lab observation has no unit");
         }
-        UUID patientUserId = command.patientUserId() != null ? command.patientUserId() : defaultUserProvider.getDefaultUserId();
+        UUID patientUserId = command.patientUserId() != null ? command.patientUserId() : defaultUserProvider.requireCurrentUserCanWritePatientData();
+        defaultUserProvider.requireCurrentUserCanWritePatientData(patientUserId);
         UUID createdByUserId = command.createdByUserId() != null ? command.createdByUserId() : defaultUserProvider.getCurrentUserId();
 
         Optional<LabObservation> existingObservation = findExistingObservation(command, patientUserId, test.id(), unit);
@@ -74,14 +75,14 @@ public class LabObservationService {
 
     @Transactional(readOnly = true)
     public Optional<LabObservationResponse> findByIdForDefaultUser(UUID observationId) {
-        return labObservationRepository.findByIdAndPatientUserId(observationId, defaultUserProvider.getDefaultUserId())
+        return labObservationRepository.findByIdAndPatientUserId(observationId, defaultUserProvider.resolveReadablePatientId(null))
             .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public Optional<LabObservationResponse> findBySourceParsedObservationIdForDefaultUser(UUID sourceParsedObservationId) {
         return labObservationRepository.findFirstByPatientUserIdAndSourceParsedObservationIdOrderByIdAsc(
-                defaultUserProvider.getDefaultUserId(),
+                defaultUserProvider.resolveReadablePatientId(null),
                 sourceParsedObservationId
             )
             .map(this::toResponse);
@@ -89,11 +90,17 @@ public class LabObservationService {
 
     @Transactional(readOnly = true)
     public LabObservationTrendResponse trend(UUID testId) {
+        return trend(testId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public LabObservationTrendResponse trend(UUID testId, UUID requestedPatientId) {
         TestCatalogLookup test = testCatalogLookupService.findById(testId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Test catalog entry not found"));
+        UUID patientUserId = defaultUserProvider.resolveReadablePatientId(requestedPatientId);
 
         List<LabObservationTrendPointProjection> observations = labObservationRepository.findTrendPointsByPatientUserIdAndTestId(
-            defaultUserProvider.getDefaultUserId(),
+            patientUserId,
             test.id()
         );
 

@@ -33,7 +33,7 @@ class LabObservationAnalyticsControllerTest {
     void trendReturnsObservationTrend() throws Exception {
         UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
-        when(labObservationService.trend(testId)).thenReturn(new LabObservationTrendResponse(
+        when(labObservationService.trend(testId, null)).thenReturn(new LabObservationTrendResponse(
             testId,
             "Hemoglobin",
             "g/dL",
@@ -101,7 +101,7 @@ class LabObservationAnalyticsControllerTest {
     void trendReturnsNotFoundForUnknownTest() throws Exception {
         UUID testId = UUID.fromString("99999999-9999-9999-9999-999999999999");
 
-        when(labObservationService.trend(testId)).thenThrow(new ResponseStatusException(
+        when(labObservationService.trend(testId, null)).thenThrow(new ResponseStatusException(
             HttpStatus.NOT_FOUND,
             "Test catalog entry not found"
         ));

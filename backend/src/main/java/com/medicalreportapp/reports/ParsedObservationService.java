@@ -56,7 +56,7 @@ class ParsedObservationService {
 
     @Transactional
     public List<ParsedObservationResponse> parse(UUID reportId) {
-        Report report = findReportForDefaultUserForUpdate(reportId);
+        Report report = findReportForCurrentUserForWrite(reportId);
         if (!StringUtils.hasText(report.getExtractedText())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report has no extracted text");
         }
@@ -97,7 +97,7 @@ class ParsedObservationService {
 
     @Transactional(readOnly = true)
     public List<ParsedObservationResponse> findByReportId(UUID reportId) {
-        Report report = findReportForDefaultUser(reportId);
+        Report report = findReportForCurrentUserForRead(reportId);
         return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
             .map(ParsedObservationResponse::from)
             .toList();
@@ -107,7 +107,7 @@ class ParsedObservationService {
     public ParsedObservationResponse update(UUID parsedObservationId, UpdateParsedObservationRequest request) {
         ParsedObservation parsedObservation = parsedObservationRepository.findById(parsedObservationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
-        findReportForDefaultUser(parsedObservation.getReportId());
+        findReportForCurrentUserForWrite(parsedObservation.getReportId());
 
         if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Confirmed parsed observations cannot be edited");
@@ -148,7 +148,7 @@ class ParsedObservationService {
     public LabObservationResponse confirm(UUID parsedObservationId) {
         ParsedObservation parsedObservation = parsedObservationRepository.findByIdForUpdate(parsedObservationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
-        Report report = findReportForDefaultUser(parsedObservation.getReportId());
+        Report report = findReportForCurrentUserForWrite(parsedObservation.getReportId());
 
         if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
             if (parsedObservation.getConfirmedObservationId() == null) {
@@ -197,16 +197,18 @@ class ParsedObservationService {
         return response;
     }
 
-    private Report findReportForDefaultUser(UUID reportId) {
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndPatientUserId(reportId, patientUserId)
+    private Report findReportForCurrentUserForRead(UUID reportId) {
+        Report report = reportRepository.findById(reportId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+        defaultUserProvider.requireCurrentUserCanReadPatientData(report.getPatientUserId());
+        return report;
     }
 
-    private Report findReportForDefaultUserForUpdate(UUID reportId) {
-        UUID patientUserId = defaultUserProvider.getDefaultUserId();
-        return reportRepository.findByIdAndPatientUserIdForUpdate(reportId, patientUserId)
+    private Report findReportForCurrentUserForWrite(UUID reportId) {
+        Report report = reportRepository.findByIdForUpdate(reportId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+        defaultUserProvider.requireCurrentUserCanWritePatientData(report.getPatientUserId());
+        return report;
     }
 
     private static List<ParsedObservation> deduplicateParsedObservations(

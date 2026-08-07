@@ -35,6 +35,13 @@ public class AppUser {
     protected AppUser() {
     }
 
+    AppUser(UUID id, String email, String displayName, AppUserRole role) {
+        this.id = id;
+        this.email = email;
+        this.displayName = displayName;
+        this.role = role;
+    }
+
     public UUID getId() {
         return id;
     }
