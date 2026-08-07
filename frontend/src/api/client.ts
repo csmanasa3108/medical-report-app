@@ -32,8 +32,17 @@ export type LabObservationResponse = {
 };
 
 export type LabTrendPointResponse = {
-  date: string;
-  value: number | string;
+  observedAt?: string | null;
+  numericValue?: number | string | null;
+  unit?: string | null;
+  sourceType?: "REPORT" | "MANUAL" | string | null;
+  reportId?: string | null;
+  reportOriginalFilename?: string | null;
+  labName?: string | null;
+  reportDate?: string | null;
+  parsedObservationId?: string | null;
+  date?: string;
+  value?: number | string;
 };
 
 export type LabTrendResponse = {
