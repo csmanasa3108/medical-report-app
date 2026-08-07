@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  formatLoadErrorMessage,
   getLabTrend,
   getTests,
   LabTrendResponse,
@@ -356,7 +357,7 @@ function TrendPage() {
         }
 
         setErrorMessage(
-          error instanceof Error ? error.message : "Unable to load trend data."
+          formatLoadErrorMessage(error, "Unable to load trend data.")
         );
       })
       .finally(() => {

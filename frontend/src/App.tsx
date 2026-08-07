@@ -2,18 +2,32 @@ import { ChangeEvent, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
   DEV_USERS,
-  DevUserKey,
   getCurrentDevUser,
   setCurrentDevUser
 } from "./api/client";
+import type { DevUser, DevUserKey } from "./api/client";
 import AddObservationPage from "./pages/AddObservationPage";
 import DashboardPage from "./pages/DashboardPage";
 import NewReportPage from "./pages/NewReportPage";
+import PatientsPage from "./pages/PatientsPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import ReportsListPage from "./pages/ReportsListPage";
 import TrendPage from "./pages/TrendPage";
 import TrendsPage from "./pages/TrendsPage";
 import soveraHealthWordmark from "./assets/brand/soverahealth-wordmark.png";
+
+function UnavailableForRolePage({ devUser }: { devUser: DevUser }) {
+  return (
+    <section className="page-section">
+      <p className="eyebrow">{devUser.role}</p>
+      <h2 className="page-title">Action unavailable</h2>
+      <p className="page-description">
+        This development role can view assigned patient data, but cannot create
+        reports or manual observations yet.
+      </p>
+    </section>
+  );
+}
 
 function App() {
   const [selectedDevUser, setSelectedDevUser] = useState(getCurrentDevUser);
@@ -37,11 +51,18 @@ function App() {
             <NavLink to="/" end>
               Dashboard
             </NavLink>
+            {selectedDevUser.role === "CLINICIAN" ? (
+              <NavLink to="/patients">Patients</NavLink>
+            ) : null}
             <NavLink to="/reports" end>
               Reports
             </NavLink>
-            <NavLink to="/reports/new">Upload Report</NavLink>
-            <NavLink to="/observations/new">Add Observation</NavLink>
+            {selectedDevUser.role === "PATIENT" ? (
+              <>
+                <NavLink to="/reports/new">Upload Report</NavLink>
+                <NavLink to="/observations/new">Add Observation</NavLink>
+              </>
+            ) : null}
             <NavLink to="/trends">Trends</NavLink>
           </nav>
           <div className="dev-user-switcher" aria-label="Development user">
@@ -64,11 +85,36 @@ function App() {
 
       <main className="page-content" key={selectedDevUser.userId}>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/reports" element={<ReportsListPage />} />
-          <Route path="/reports/new" element={<NewReportPage />} />
-          <Route path="/reports/:reportId" element={<ReportDetailPage />} />
-          <Route path="/observations/new" element={<AddObservationPage />} />
+          <Route path="/" element={<DashboardPage devUser={selectedDevUser} />} />
+          <Route path="/patients" element={<PatientsPage devUser={selectedDevUser} />} />
+          <Route
+            path="/reports"
+            element={<ReportsListPage devUser={selectedDevUser} />}
+          />
+          <Route
+            path="/reports/new"
+            element={
+              selectedDevUser.role === "PATIENT" ? (
+                <NewReportPage />
+              ) : (
+                <UnavailableForRolePage devUser={selectedDevUser} />
+              )
+            }
+          />
+          <Route
+            path="/reports/:reportId"
+            element={<ReportDetailPage devUser={selectedDevUser} />}
+          />
+          <Route
+            path="/observations/new"
+            element={
+              selectedDevUser.role === "PATIENT" ? (
+                <AddObservationPage />
+              ) : (
+                <UnavailableForRolePage devUser={selectedDevUser} />
+              )
+            }
+          />
           <Route path="/trends" element={<TrendsPage />} />
           <Route path="/tests/:testId/trend" element={<TrendPage />} />
         </Routes>

@@ -174,6 +174,81 @@ export type UploadReportRequest = {
   labName?: string;
 };
 
+type ApiErrorBody = {
+  message?: unknown;
+  error?: unknown;
+  detail?: unknown;
+  title?: unknown;
+};
+
+const MAX_ERROR_DETAIL_LENGTH = 180;
+
+function compactErrorText(value: string): string {
+  const firstLine = value
+    .split(/\r?\n/)
+    .find((line) => line.trim().length > 0) ?? value;
+  const compacted = firstLine
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return compacted.length > MAX_ERROR_DETAIL_LENGTH
+    ? `${compacted.slice(0, MAX_ERROR_DETAIL_LENGTH - 1)}…`
+    : compacted;
+}
+
+function getStringErrorField(body: ApiErrorBody): string | null {
+  const candidate = body.message ?? body.error ?? body.detail ?? body.title;
+
+  if (typeof candidate !== "string") {
+    return null;
+  }
+
+  const compacted = compactErrorText(candidate);
+  return compacted || null;
+}
+
+function getBackendErrorMessage(responseText: string): string | null {
+  if (!responseText.trim()) {
+    return null;
+  }
+
+  try {
+    const body = JSON.parse(responseText) as ApiErrorBody;
+    return getStringErrorField(body);
+  } catch {
+    return compactErrorText(responseText) || null;
+  }
+}
+
+async function buildApiErrorMessage(response: Response): Promise<string> {
+  const statusText = response.statusText.trim();
+  const statusLabel = statusText
+    ? `${response.status} ${statusText}`
+    : String(response.status);
+  const responseText = await response.text();
+  const backendMessage = getBackendErrorMessage(responseText);
+
+  return backendMessage
+    ? `${statusLabel} — ${backendMessage}`
+    : statusLabel;
+}
+
+export function formatErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+export function formatLoadErrorMessage(
+  error: unknown,
+  fallbackMessage: string
+) {
+  return `Load failed: ${formatErrorMessage(error, fallbackMessage)}`;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -185,20 +260,7 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    const fallbackMessage = `Request failed with status ${response.status}`;
-    const responseText = await response.text();
-    let message = fallbackMessage;
-
-    if (responseText) {
-      try {
-        const body = JSON.parse(responseText) as { message?: string; error?: string };
-        message = body.message || body.error || fallbackMessage;
-      } catch {
-        message = responseText;
-      }
-    }
-
-    throw new Error(message);
+    throw new Error(await buildApiErrorMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -212,20 +274,7 @@ async function apiCommand(path: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const fallbackMessage = `Request failed with status ${response.status}`;
-    const responseText = await response.text();
-    let message = fallbackMessage;
-
-    if (responseText) {
-      try {
-        const body = JSON.parse(responseText) as { message?: string; error?: string };
-        message = body.message || body.error || fallbackMessage;
-      } catch {
-        message = responseText;
-      }
-    }
-
-    throw new Error(message);
+    throw new Error(await buildApiErrorMessage(response));
   }
 }
 
@@ -330,20 +379,7 @@ export async function uploadReport(payload: UploadReportRequest) {
   });
 
   if (!response.ok) {
-    const fallbackMessage = `Upload failed with status ${response.status}`;
-    const responseText = await response.text();
-    let message = fallbackMessage;
-
-    if (responseText) {
-      try {
-        const body = JSON.parse(responseText) as { message?: string; error?: string };
-        message = body.message || body.error || fallbackMessage;
-      } catch {
-        message = responseText;
-      }
-    }
-
-    throw new Error(message);
+    throw new Error(await buildApiErrorMessage(response));
   }
 
   return response.json() as Promise<ReportResponse>;

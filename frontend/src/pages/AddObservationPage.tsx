@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createObservation,
+  formatLoadErrorMessage,
   getTests,
   LabObservationResponse,
   TestCatalogResponse
@@ -66,9 +67,7 @@ function AddObservationPage() {
         }
 
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to load the test catalog."
+          formatLoadErrorMessage(error, "Unable to load the test catalog.")
         );
       })
       .finally(() => {

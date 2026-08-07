@@ -327,6 +327,11 @@ h2 {
   gap: var(--space-5);
 }
 
+.clinician-summary-grid,
+.patients-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .dashboard-summary-card {
   display: grid;
   gap: var(--space-2);
@@ -338,6 +343,22 @@ h2 {
     linear-gradient(180deg, var(--color-white), var(--color-surface-soft)),
     var(--color-white);
   box-shadow: var(--card-shadow);
+}
+
+.dashboard-placeholder-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-9);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--card-radius);
+  background: var(--color-surface-soft);
+}
+
+.dashboard-placeholder-card p {
+  max-width: none;
+  margin: 0;
+  color: var(--color-text-secondary);
 }
 
 .dashboard-summary-label {
@@ -405,6 +426,32 @@ h2 {
 
 .dashboard-action-card-primary {
   border-color: var(--color-primary);
+}
+
+.patients-page {
+  display: grid;
+  gap: var(--space-9);
+}
+
+.patients-layout {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.selected-patient-card {
+  max-width: none;
+}
+
+.selected-patient-name {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+}
+
+.patient-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 .dashboard-action-card-primary .dashboard-action-accent {
@@ -1279,7 +1326,9 @@ h2 {
 @media (max-width: 1000px) {
   .dashboard-action-grid,
   .trends-grid,
-  .trend-summary {
+  .trend-summary,
+  .clinician-summary-grid,
+  .patients-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1323,6 +1372,11 @@ h2 {
   }
 
   .dashboard-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clinician-summary-grid,
+  .patients-layout {
     grid-template-columns: 1fr;
   }
 

@@ -6,4 +6,5 @@ com/medicalreportapp/observations/LabObservationServiceTest.class
 com/medicalreportapp/observations/LabObservationAnalyticsControllerTest.class
 com/medicalreportapp/observations/LabObservationServiceTest$TestTrendPoint.class
 com/medicalreportapp/reports/ParsedObservationServiceTest.class
+com/medicalreportapp/users/UserAccessServiceTest.class
 com/medicalreportapp/reports/ReportControllerTest.class

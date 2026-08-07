@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { deleteReport, getReports, ReportResponse } from "../api/client";
+import {
+  deleteReport,
+  formatLoadErrorMessage,
+  getReports,
+  ReportResponse
+} from "../api/client";
+import type { DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 
 type ReportsLocationState = {
   successMessage?: string;
+};
+
+type ReportsListPageProps = {
+  devUser: DevUser;
 };
 
 function formatDate(value: string | null) {
@@ -41,7 +51,7 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-function ReportsListPage() {
+function ReportsListPage({ devUser }: ReportsListPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [reports, setReports] = useState<ReportResponse[]>([]);
@@ -49,6 +59,7 @@ function ReportsListPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const isClinician = devUser.role === "CLINICIAN";
 
   useEffect(() => {
     let isCurrent = true;
@@ -65,7 +76,7 @@ function ReportsListPage() {
         }
 
         setErrorMessage(
-          error instanceof Error ? error.message : "Unable to load reports."
+          formatLoadErrorMessage(error, "Unable to load reports.")
         );
       })
       .finally(() => {
@@ -122,15 +133,20 @@ function ReportsListPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2 className="page-title">Reports</h2>
+          <h2 className="page-title">
+            {isClinician ? "Patient reports" : "Your reports"}
+          </h2>
           <p className="page-description">
-            Manage uploaded diagnostic reports and review extracted lab
-            observations.
+            {isClinician
+              ? "View diagnostic reports for the selected assigned patient."
+              : "Manage uploaded diagnostic reports and review extracted lab observations."}
           </p>
         </div>
-        <Link className="button-link" to="/reports/new">
-          Upload Report
-        </Link>
+        {!isClinician ? (
+          <Link className="button-link" to="/reports/new">
+            Upload Report
+          </Link>
+        ) : null}
       </div>
 
       {isLoading ? <p className="status-message">Loading reports...</p> : null}
@@ -182,14 +198,16 @@ function ReportsListPage() {
                       >
                         View details
                       </Link>
-                      <button
-                        className="action-button secondary danger table-action-button"
-                        type="button"
-                        onClick={() => handleDeleteReport(report.id)}
-                        disabled={deletingReportId !== null}
-                      >
-                        {deletingReportId === report.id ? "Deleting..." : "Delete"}
-                      </button>
+                      {!isClinician ? (
+                        <button
+                          className="action-button secondary danger table-action-button"
+                          type="button"
+                          onClick={() => handleDeleteReport(report.id)}
+                          disabled={deletingReportId !== null}
+                        >
+                          {deletingReportId === report.id ? "Deleting..." : "Delete"}
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

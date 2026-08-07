@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   confirmParsedObservation,
   deleteReport,
+  formatLoadErrorMessage,
   getParsedObservations,
   getReport,
   getTests,
@@ -12,6 +13,7 @@ import {
   updateParsedObservation,
   UpdateParsedObservationRequest
 } from "../api/client";
+import type { DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 
 type ParsedObservationEditForm = {
@@ -26,6 +28,10 @@ type ParsedObservationEditForm = {
 
 type ReportDetailLocationState = {
   successMessage?: string;
+};
+
+type ReportDetailPageProps = {
+  devUser: DevUser;
 };
 
 function formatDate(value: string | null) {
@@ -138,7 +144,7 @@ function buildUpdatePayload(
   };
 }
 
-function ReportDetailPage() {
+function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const { reportId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -176,6 +182,7 @@ function ReportDetailPage() {
   const [actionMessage, setActionMessage] = useState("");
   const uploadSuccessMessage = (location.state as ReportDetailLocationState | null)
     ?.successMessage;
+  const isClinician = devUser.role === "CLINICIAN";
 
   useEffect(() => {
     let isCurrent = true;
@@ -209,7 +216,7 @@ function ReportDetailPage() {
         }
 
         setErrorMessage(
-          error instanceof Error ? error.message : "Unable to load the report."
+          formatLoadErrorMessage(error, "Unable to load the report.")
         );
       })
       .finally(() => {
@@ -240,9 +247,7 @@ function ReportDetailPage() {
         }
 
         setParsedErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to load the test catalog."
+          formatLoadErrorMessage(error, "Unable to load the test catalog.")
         );
       })
       .finally(() => {
@@ -409,16 +414,20 @@ function ReportDetailPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Reports</p>
-          <h2 className="page-title">Report Detail</h2>
+          <h2 className="page-title">
+            {isClinician ? "Patient report detail" : "Report Detail"}
+          </h2>
           <p className="page-description">
-            Review report metadata and confirm extracted diagnostic observations.
+            {isClinician
+              ? "Review report metadata and extracted diagnostic observations."
+              : "Review report metadata and confirm extracted diagnostic observations."}
           </p>
         </div>
         <div className="report-detail-actions">
           <Link className="button-link secondary" to="/reports">
             All Reports
           </Link>
-          {!isLoading && !errorMessage && report ? (
+          {!isClinician && !isLoading && !errorMessage && report ? (
             <button
               className="action-button secondary danger"
               type="button"
@@ -484,7 +493,9 @@ function ReportDetailPage() {
             <div>
               <h3>Parsed Observations</h3>
               <p className="parse-observations-helper">
-                Review extracted observations before confirming them into trends.
+                {isClinician
+                  ? "Review extracted observations for the selected assigned patient."
+                  : "Review extracted observations before confirming them into trends."}
               </p>
             </div>
             <div className="parsed-observations-actions">
@@ -562,7 +573,8 @@ function ReportDetailPage() {
                       observation.id === confirmingObservationId;
                     const isConfirmed = observation.status === "CONFIRMED";
                     const isEditing = observation.id === editingObservationId;
-                    const canEdit = Boolean(observation.id) && !isConfirmed;
+                    const canEdit =
+                      !isClinician && Boolean(observation.id) && !isConfirmed;
                     const isSaving = observation.id === savingObservationId;
                     const selectedMatchedTestExists =
                       editForm.matchedTestId === "" ||
@@ -740,7 +752,7 @@ function ReportDetailPage() {
                                   Edit
                                 </button>
                               ) : null}
-                              {isConfirmable && observation.id ? (
+                              {!isClinician && isConfirmable && observation.id ? (
                                 <button
                                   className="action-button table-action-button"
                                   type="button"

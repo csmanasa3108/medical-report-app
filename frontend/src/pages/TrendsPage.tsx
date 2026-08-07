@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getTests, TestCatalogResponse } from "../api/client";
+import {
+  formatLoadErrorMessage,
+  getTests,
+  TestCatalogResponse
+} from "../api/client";
 
 function getTestName(test: TestCatalogResponse) {
   return test.displayName || test.canonicalName;
@@ -29,9 +33,7 @@ function TrendsPage() {
         }
 
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to load the test catalog."
+          formatLoadErrorMessage(error, "Unable to load the test catalog.")
         );
       })
       .finally(() => {
