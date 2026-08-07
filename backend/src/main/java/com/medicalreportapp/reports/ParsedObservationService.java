@@ -178,7 +178,9 @@ class ParsedObservationService {
             parsedObservation.getUnit(),
             referenceBounds.low(),
             referenceBounds.high(),
-            abnormalFlag(parsedObservation.getNumericValue(), referenceBounds)
+            abnormalFlag(parsedObservation.getNumericValue(), referenceBounds),
+            report.getId(),
+            parsedObservation.getId()
         ));
 
         parsedObservation.markConfirmed(response.id(), Instant.now());

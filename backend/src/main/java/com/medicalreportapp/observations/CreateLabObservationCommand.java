@@ -11,8 +11,22 @@ public record CreateLabObservationCommand(
     String unit,
     BigDecimal referenceLow,
     BigDecimal referenceHigh,
-    String abnormalFlag
+    String abnormalFlag,
+    UUID sourceReportId,
+    UUID sourceParsedObservationId
 ) {
+
+    public CreateLabObservationCommand(
+        UUID testId,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit,
+        BigDecimal referenceLow,
+        BigDecimal referenceHigh,
+        String abnormalFlag
+    ) {
+        this(testId, observedAt, numericValue, unit, referenceLow, referenceHigh, abnormalFlag, null, null);
+    }
 
     static CreateLabObservationCommand from(CreateLabObservationRequest request) {
         return new CreateLabObservationCommand(
@@ -22,7 +36,9 @@ public record CreateLabObservationCommand(
             request.unit(),
             request.referenceLow(),
             request.referenceHigh(),
-            request.abnormalFlag()
+            request.abnormalFlag(),
+            null,
+            null
         );
     }
 }

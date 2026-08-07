@@ -54,7 +54,9 @@ public class LabObservationService {
             unit,
             command.referenceLow(),
             command.referenceHigh(),
-            command.abnormalFlag()
+            command.abnormalFlag(),
+            command.sourceReportId(),
+            command.sourceParsedObservationId()
         );
 
         LabObservation savedObservation = labObservationRepository.save(observation);
@@ -76,7 +78,7 @@ public class LabObservationService {
         TestCatalogLookup test = testCatalogLookupService.findById(testId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Test catalog entry not found"));
 
-        List<LabObservation> observations = labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(
+        List<LabObservationTrendPointProjection> observations = labObservationRepository.findTrendPointsByUserIdAndTestId(
             defaultUserProvider.getDefaultUserId(),
             test.id()
         );
@@ -84,7 +86,14 @@ public class LabObservationService {
         List<LabObservationTrendPointResponse> points = observations.stream()
             .map(observation -> new LabObservationTrendPointResponse(
                 observation.getObservedAt(),
-                observation.getNumericValue()
+                observation.getNumericValue(),
+                observation.getUnit(),
+                isReportSource(observation) ? LabObservationSourceType.REPORT : LabObservationSourceType.MANUAL,
+                observation.getReportId(),
+                observation.getReportOriginalFilename(),
+                observation.getLabName(),
+                observation.getReportDate(),
+                observation.getParsedObservationId()
             ))
             .toList();
 
@@ -101,7 +110,7 @@ public class LabObservationService {
             );
         }
 
-        LabObservation latest = observations.getLast();
+        LabObservationTrendPointProjection latest = observations.getLast();
         BigDecimal latestValue = latest.getNumericValue();
 
         if (observations.size() == 1) {
@@ -136,5 +145,9 @@ public class LabObservationService {
             absoluteChange,
             percentChange
         );
+    }
+
+    private static boolean isReportSource(LabObservationTrendPointProjection observation) {
+        return observation.getReportId() != null || observation.getParsedObservationId() != null;
     }
 }

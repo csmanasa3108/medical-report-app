@@ -39,6 +39,12 @@ class LabObservation {
     @Column(name = "abnormal_flag", nullable = false, length = 20)
     private String abnormalFlag;
 
+    @Column(name = "source_report_id")
+    private UUID sourceReportId;
+
+    @Column(name = "source_parsed_observation_id")
+    private UUID sourceParsedObservationId;
+
     protected LabObservation() {
     }
 
@@ -53,6 +59,34 @@ class LabObservation {
         BigDecimal referenceHigh,
         String abnormalFlag
     ) {
+        this(
+            id,
+            userId,
+            testId,
+            observedAt,
+            numericValue,
+            unit,
+            referenceLow,
+            referenceHigh,
+            abnormalFlag,
+            null,
+            null
+        );
+    }
+
+    LabObservation(
+        UUID id,
+        UUID userId,
+        UUID testId,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit,
+        BigDecimal referenceLow,
+        BigDecimal referenceHigh,
+        String abnormalFlag,
+        UUID sourceReportId,
+        UUID sourceParsedObservationId
+    ) {
         this.id = id;
         this.userId = userId;
         this.testId = testId;
@@ -62,6 +96,8 @@ class LabObservation {
         this.referenceLow = referenceLow;
         this.referenceHigh = referenceHigh;
         this.abnormalFlag = abnormalFlag;
+        this.sourceReportId = sourceReportId;
+        this.sourceParsedObservationId = sourceParsedObservationId;
     }
 
     UUID getId() {
@@ -98,5 +134,13 @@ class LabObservation {
 
     String getAbnormalFlag() {
         return abnormalFlag;
+    }
+
+    UUID getSourceReportId() {
+        return sourceReportId;
+    }
+
+    UUID getSourceParsedObservationId() {
+        return sourceParsedObservationId;
     }
 }

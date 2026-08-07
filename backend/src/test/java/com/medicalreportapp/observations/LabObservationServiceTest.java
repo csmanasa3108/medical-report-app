@@ -68,6 +68,8 @@ class LabObservationServiceTest {
         assertThat(savedObservation.getReferenceLow()).isEqualByComparingTo("70");
         assertThat(savedObservation.getReferenceHigh()).isEqualByComparingTo("99");
         assertThat(savedObservation.getAbnormalFlag()).isEqualTo("normal");
+        assertThat(savedObservation.getSourceReportId()).isNull();
+        assertThat(savedObservation.getSourceParsedObservationId()).isNull();
 
         assertThat(response.id()).isEqualTo(savedObservation.getId());
         assertThat(response.testId()).isEqualTo(testId);
@@ -87,9 +89,9 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
-            observation(userId, testId, "2026-07-01", "12.0", "g/dL"),
-            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+            trendPoint("2026-07-01", "12.0", "g/dL"),
+            trendPoint("2026-07-09", "12.8", "g/dL")
         ));
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
@@ -97,10 +99,14 @@ class LabObservationServiceTest {
         assertThat(response.testId()).isEqualTo(testId);
         assertThat(response.testName()).isEqualTo("Hemoglobin");
         assertThat(response.unit()).isEqualTo("g/dL");
-        assertThat(response.points()).extracting(LabObservationTrendPointResponse::date)
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::observedAt)
             .containsExactly(LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-09"));
-        assertThat(response.points()).extracting(LabObservationTrendPointResponse::value)
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::numericValue)
             .containsExactly(new BigDecimal("12.0"), new BigDecimal("12.8"));
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::unit)
+            .containsExactly("g/dL", "g/dL");
+        assertThat(response.points()).extracting(LabObservationTrendPointResponse::sourceType)
+            .containsOnly(LabObservationSourceType.MANUAL);
         assertThat(response.latestValue()).isEqualByComparingTo("12.8");
         assertThat(response.previousValue()).isEqualByComparingTo("12.0");
         assertThat(response.absoluteChange()).isEqualByComparingTo("0.8");
@@ -114,7 +120,7 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of());
+        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of());
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
 
@@ -133,8 +139,8 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
-            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+            trendPoint("2026-07-09", "12.8", "g/dL")
         ));
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
@@ -152,9 +158,9 @@ class LabObservationServiceTest {
 
         when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
         when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
-        when(labObservationRepository.findByUserIdAndTestIdOrderByObservedAtAsc(userId, testId)).thenReturn(List.of(
-            observation(userId, testId, "2026-07-01", "0", "g/dL"),
-            observation(userId, testId, "2026-07-09", "12.8", "g/dL")
+        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(
+            trendPoint("2026-07-01", "0", "g/dL"),
+            trendPoint("2026-07-09", "12.8", "g/dL")
         ));
 
         LabObservationTrendResponse response = labObservationService.trend(testId);
@@ -165,17 +171,99 @@ class LabObservationServiceTest {
         assertThat(response.percentChange()).isNull();
     }
 
-    private static LabObservation observation(UUID userId, UUID testId, String observedAt, String numericValue, String unit) {
-        return new LabObservation(
-            UUID.randomUUID(),
-            userId,
-            testId,
+    @Test
+    void trendIncludesReportSourceDetailsWhenObservationCameFromParsedReport() {
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(testCatalogLookupService.findById(testId)).thenReturn(Optional.of(new TestCatalogLookup(testId, "Hemoglobin", "g/dL")));
+        when(defaultUserProvider.getDefaultUserId()).thenReturn(userId);
+        when(labObservationRepository.findTrendPointsByUserIdAndTestId(userId, testId)).thenReturn(List.of(new TestTrendPoint(
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.8"),
+            "g/dL",
+            reportId,
+            "lab-report-july.pdf",
+            "Quest Diagnostics",
+            LocalDate.parse("2026-07-09"),
+            parsedObservationId
+        )));
+
+        LabObservationTrendResponse response = labObservationService.trend(testId);
+
+        LabObservationTrendPointResponse point = response.points().getFirst();
+        assertThat(point.sourceType()).isEqualTo(LabObservationSourceType.REPORT);
+        assertThat(point.reportId()).isEqualTo(reportId);
+        assertThat(point.reportOriginalFilename()).isEqualTo("lab-report-july.pdf");
+        assertThat(point.labName()).isEqualTo("Quest Diagnostics");
+        assertThat(point.reportDate()).isEqualTo(LocalDate.parse("2026-07-09"));
+        assertThat(point.parsedObservationId()).isEqualTo(parsedObservationId);
+    }
+
+    private static LabObservationTrendPointProjection trendPoint(String observedAt, String numericValue, String unit) {
+        return new TestTrendPoint(
             LocalDate.parse(observedAt),
             new BigDecimal(numericValue),
             unit,
-            new BigDecimal("10"),
-            new BigDecimal("15"),
-            "normal"
+            null,
+            null,
+            null,
+            null,
+            null
         );
+    }
+
+    private record TestTrendPoint(
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String unit,
+        UUID reportId,
+        String reportOriginalFilename,
+        String labName,
+        LocalDate reportDate,
+        UUID parsedObservationId
+    ) implements LabObservationTrendPointProjection {
+
+        @Override
+        public LocalDate getObservedAt() {
+            return observedAt;
+        }
+
+        @Override
+        public BigDecimal getNumericValue() {
+            return numericValue;
+        }
+
+        @Override
+        public String getUnit() {
+            return unit;
+        }
+
+        @Override
+        public UUID getReportId() {
+            return reportId;
+        }
+
+        @Override
+        public String getReportOriginalFilename() {
+            return reportOriginalFilename;
+        }
+
+        @Override
+        public String getLabName() {
+            return labName;
+        }
+
+        @Override
+        public LocalDate getReportDate() {
+            return reportDate;
+        }
+
+        @Override
+        public UUID getParsedObservationId() {
+            return parsedObservationId;
+        }
     }
 }

@@ -569,6 +569,8 @@ class ParsedObservationServiceTest {
         assertThat(command.referenceLow()).isEqualByComparingTo("4.0");
         assertThat(command.referenceHigh()).isEqualByComparingTo("11.0");
         assertThat(command.abnormalFlag()).isEqualTo("normal");
+        assertThat(command.sourceReportId()).isEqualTo(reportId);
+        assertThat(command.sourceParsedObservationId()).isEqualTo(parsedObservationId);
     }
 
     @Test
@@ -614,6 +616,8 @@ class ParsedObservationServiceTest {
         assertThat(command.referenceLow()).isEqualByComparingTo("12.0");
         assertThat(command.referenceHigh()).isEqualByComparingTo("15.5");
         assertThat(command.abnormalFlag()).isEqualTo("normal");
+        assertThat(command.sourceReportId()).isEqualTo(reportId);
+        assertThat(command.sourceParsedObservationId()).isEqualTo(parsedObservationId);
         assertThat(parsedObservation.getStatus()).isEqualTo(ParsedObservationStatus.CONFIRMED);
         assertThat(parsedObservation.getConfirmedObservationId()).isEqualTo(labObservationId);
         assertThat(parsedObservation.getConfirmedAt()).isNotNull();
