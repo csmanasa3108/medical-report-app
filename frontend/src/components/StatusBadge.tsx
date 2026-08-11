@@ -18,6 +18,7 @@ function getStatusTone(status: string | null | undefined) {
       return "status-badge-confirmed";
     case "INACTIVE":
     case "REVOKED":
+    case "REJECTED":
       return "status-badge-revoked";
     case "NEEDS_REVIEW":
       return "status-badge-review";

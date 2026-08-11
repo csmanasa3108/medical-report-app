@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.medicalreportapp.reports.ParsedObservationServiceTest
 -------------------------------------------------------------------------------
-Tests run: 26, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.167 s -- in com.medicalreportapp.reports.ParsedObservationServiceTest
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.245 s -- in com.medicalreportapp.reports.ParsedObservationServiceTest

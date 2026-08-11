@@ -32,6 +32,7 @@ interface ParsedObservationRepository extends JpaRepository<ParsedObservation, U
             medicalReport.reportDate as reportDate,
             parsedObservation.matchedTestId as testId,
             coalesce(testCatalog.displayName, parsedObservation.rawTestName) as testName,
+            parsedObservation.rawTestName as rawTestName,
             parsedObservation.observedAt as observedAt,
             parsedObservation.rawValue as valueText,
             parsedObservation.numericValue as numericValue,

@@ -3,6 +3,7 @@ package com.medicalreportapp.reports;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -95,7 +96,7 @@ class ParsedObservationServiceTest {
         when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
             .thenReturn(List.of());
         AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of());
-        when(parsedObservationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
             .thenAnswer(invocation -> {
                 storedObservations.set(invocation.getArgument(0));
                 return invocation.getArgument(0);
@@ -107,7 +108,7 @@ class ParsedObservationServiceTest {
 
         ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
         verify(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
-        verify(parsedObservationRepository).saveAll(observationsCaptor.capture());
+        verify(parsedObservationRepository).saveAllAndFlush(observationsCaptor.capture());
         verify(parsedObservationRepository).findByReportIdOrderByCreatedAtAsc(reportId);
 
         List<ParsedObservation> savedObservations = observationsCaptor.getValue();
@@ -151,7 +152,7 @@ class ParsedObservationServiceTest {
         when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
             .thenReturn(List.of());
         AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of());
-        when(parsedObservationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
             .thenAnswer(invocation -> {
                 storedObservations.set(invocation.getArgument(0));
                 return invocation.getArgument(0);
@@ -162,13 +163,58 @@ class ParsedObservationServiceTest {
         List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
 
         ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(parsedObservationRepository).saveAll(observationsCaptor.capture());
+        verify(parsedObservationRepository).saveAllAndFlush(observationsCaptor.capture());
 
         assertThat(observationsCaptor.getValue()).hasSize(2);
         assertThat(observationsCaptor.getValue()).extracting(ParsedObservation::getRawTestName)
             .containsExactly("Hemoglobin", "Glucose");
         assertThat(responses).extracting(ParsedObservationResponse::rawTestName)
             .containsExactly("Hemoglobin", "Glucose");
+    }
+
+    @Test
+    void parsingSameReportTwiceReplacesNeedsReviewRowsWithoutDuplicating() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID hemoglobinId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID glucoseId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        Report report = report(reportId, userId);
+        report.markTextExtracted("""
+            Hemoglobin 12.8 g/dL 12.0 - 15.5
+            Glucose 91 mg/dL 70 - 99
+            """, Instant.parse("2026-07-10T13:00:00Z"));
+        AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of());
+
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
+        when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
+            new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
+            new TestCatalogMatch(glucoseId, "glucose", "Glucose", "mg/dL")
+        ));
+        when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
+            .thenReturn(List.of());
+        doAnswer(invocation -> {
+            storedObservations.set(List.of());
+            return null;
+        }).when(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
+            .thenAnswer(invocation -> {
+                storedObservations.set(invocation.getArgument(0));
+                return invocation.getArgument(0);
+            });
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenAnswer(invocation -> storedObservations.get());
+
+        List<ParsedObservationResponse> firstParse = parsedObservationService.parse(reportId);
+        List<ParsedObservationResponse> secondParse = parsedObservationService.parse(reportId);
+
+        ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(parsedObservationRepository, org.mockito.Mockito.times(2)).saveAllAndFlush(observationsCaptor.capture());
+        assertThat(firstParse).hasSize(2);
+        assertThat(secondParse).hasSize(2);
+        assertThat(observationsCaptor.getAllValues()).allSatisfy(savedObservations ->
+            assertThat(savedObservations).hasSize(2)
+        );
     }
 
     @Test
@@ -202,7 +248,7 @@ class ParsedObservationServiceTest {
         List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
 
         verify(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
-        verify(parsedObservationRepository, never()).saveAll(any());
+        verify(parsedObservationRepository, never()).saveAllAndFlush(any());
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().id()).isEqualTo(confirmedParsedObservationId);
         assertThat(responses.getFirst().status()).isEqualTo("CONFIRMED");
@@ -234,9 +280,45 @@ class ParsedObservationServiceTest {
 
         List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
 
-        verify(parsedObservationRepository, never()).saveAll(any());
+        verify(parsedObservationRepository, never()).saveAllAndFlush(any());
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().id()).isEqualTo(confirmedParsedObservationId);
+    }
+
+    @Test
+    void parsePreservesRejectedParsedObservationAndDoesNotReinsertEquivalentCandidate() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID rejectedParsedObservationId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        UUID hemoglobinId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        Report report = report(reportId, userId);
+        report.markTextExtracted("Hemoglobin 12.8 g/dL 12.0 - 15.5", Instant.parse("2026-07-10T13:00:00Z"));
+        ParsedObservation rejectedObservation = parsedObservation(
+            rejectedParsedObservationId,
+            reportId,
+            hemoglobinId,
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.8000")
+        );
+        rejectedObservation.markRejected();
+
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
+        when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
+            new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL")
+        ));
+        when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
+            .thenReturn(List.of(rejectedObservation));
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenReturn(List.of(rejectedObservation));
+
+        List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
+
+        verify(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
+        verify(parsedObservationRepository, never()).saveAllAndFlush(any());
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().id()).isEqualTo(rejectedParsedObservationId);
+        assertThat(responses.getFirst().status()).isEqualTo("REJECTED");
     }
 
     @Test
@@ -265,7 +347,7 @@ class ParsedObservationServiceTest {
         when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
             .thenReturn(List.of(confirmedObservation));
         AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of(confirmedObservation));
-        when(parsedObservationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
             .thenAnswer(invocation -> {
                 List<ParsedObservation> newObservations = invocation.getArgument(0);
                 storedObservations.set(List.of(confirmedObservation, newObservations.getFirst()));
@@ -278,7 +360,7 @@ class ParsedObservationServiceTest {
 
         ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
         verify(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
-        verify(parsedObservationRepository).saveAll(observationsCaptor.capture());
+        verify(parsedObservationRepository).saveAllAndFlush(observationsCaptor.capture());
 
         assertThat(observationsCaptor.getValue()).hasSize(1);
         assertThat(observationsCaptor.getValue().getFirst().getStatus()).isEqualTo(ParsedObservationStatus.NEEDS_REVIEW);
@@ -318,7 +400,7 @@ class ParsedObservationServiceTest {
         when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
             .thenReturn(List.of(confirmedObservation));
         AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of(confirmedObservation));
-        when(parsedObservationRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
             .thenAnswer(invocation -> {
                 List<ParsedObservation> newObservations = invocation.getArgument(0);
                 storedObservations.set(List.of(confirmedObservation, newObservations.getFirst()));
@@ -330,7 +412,7 @@ class ParsedObservationServiceTest {
         List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
 
         ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(parsedObservationRepository).saveAll(observationsCaptor.capture());
+        verify(parsedObservationRepository).saveAllAndFlush(observationsCaptor.capture());
         assertThat(observationsCaptor.getValue()).hasSize(1);
         assertThat(observationsCaptor.getValue().getFirst().getRawTestName()).isEqualTo("WBC");
         assertThat(responses).extracting(ParsedObservationResponse::status)
@@ -377,6 +459,88 @@ class ParsedObservationServiceTest {
             .isInstanceOf(ResponseStatusException.class)
             .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
             .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void findByReportIdRemovesDuplicateNeedsReviewRowsBeforeReturningRows() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID firstParsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID duplicateParsedObservationId = UUID.fromString("77777777-7777-7777-7777-777777777777");
+        UUID confirmedParsedObservationId = UUID.fromString("88888888-8888-8888-8888-888888888888");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        ParsedObservation firstObservation = parsedObservation(
+            firstParsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.8000")
+        );
+        ParsedObservation duplicateObservation = parsedObservation(
+            duplicateParsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("12.80")
+        );
+        ParsedObservation confirmedObservation = parsedObservation(
+            confirmedParsedObservationId,
+            reportId,
+            testId,
+            LocalDate.parse("2026-07-10"),
+            new BigDecimal("13.1")
+        );
+        confirmedObservation.markConfirmed(UUID.fromString("66666666-6666-6666-6666-666666666666"), Instant.parse("2026-07-10T15:00:00Z"));
+        AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(
+            List.of(firstObservation, duplicateObservation, confirmedObservation)
+        );
+
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report(reportId, userId)));
+        when(parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(reportId, ParsedObservationStatus.NEEDS_REVIEW))
+            .thenAnswer(invocation -> storedObservations.get().stream()
+                .filter(observation -> observation.getStatus() == ParsedObservationStatus.NEEDS_REVIEW)
+                .toList());
+        doAnswer(invocation -> {
+            List<ParsedObservation> duplicates = invocation.getArgument(0);
+            storedObservations.set(storedObservations.get().stream()
+                .filter(observation -> !duplicates.contains(observation))
+                .toList());
+            return null;
+        }).when(parsedObservationRepository).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenAnswer(invocation -> storedObservations.get());
+
+        List<ParsedObservationResponse> responses = parsedObservationService.findByReportId(reportId);
+
+        ArgumentCaptor<List<ParsedObservation>> duplicateCaptor = ArgumentCaptor.forClass(List.class);
+        verify(parsedObservationRepository).deleteAllInBatch(duplicateCaptor.capture());
+        assertThat(duplicateCaptor.getValue()).extracting(ParsedObservation::getId)
+            .containsExactly(duplicateParsedObservationId);
+        assertThat(responses).extracting(ParsedObservationResponse::id)
+            .containsExactly(firstParsedObservationId, confirmedParsedObservationId);
+    }
+
+    @Test
+    void findReviewQueueDoesNotReturnDuplicateNeedsReviewRows() {
+        UUID patientUserId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID firstParsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID duplicateParsedObservationId = UUID.fromString("77777777-7777-7777-7777-777777777777");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(defaultUserProvider.resolveReadablePatientId(null)).thenReturn(patientUserId);
+        when(parsedObservationRepository.findReviewQueueByPatientUserIdAndStatus(patientUserId, ParsedObservationStatus.NEEDS_REVIEW))
+            .thenReturn(List.of(
+                reviewProjection(firstParsedObservationId, reportId, testId, "Hemoglobin", "12.8000"),
+                reviewProjection(duplicateParsedObservationId, reportId, testId, "Hemoglobin", "12.80")
+            ));
+
+        List<ParsedObservationReviewResponse> responses =
+            parsedObservationService.findReviewQueue(null, ParsedObservationStatus.NEEDS_REVIEW);
+
+        assertThat(responses).extracting(ParsedObservationReviewResponse::parsedObservationId)
+            .containsExactly(firstParsedObservationId);
     }
 
     @Test
@@ -964,6 +1128,126 @@ class ParsedObservationServiceTest {
             "12.0 - 15.5",
             ParsedObservationStatus.NEEDS_REVIEW
         );
+    }
+
+    private static ParsedObservationReviewProjection reviewProjection(
+        UUID parsedObservationId,
+        UUID reportId,
+        UUID testId,
+        String rawTestName,
+        String valueText
+    ) {
+        return new TestParsedObservationReviewProjection(
+            parsedObservationId,
+            reportId,
+            "lab-report-july.pdf",
+            "Quest Diagnostics",
+            LocalDate.parse("2026-07-09"),
+            testId,
+            rawTestName,
+            rawTestName,
+            LocalDate.parse("2026-07-09"),
+            valueText,
+            new BigDecimal(valueText),
+            "g/dL",
+            "12.0 - 15.5",
+            ParsedObservationStatus.NEEDS_REVIEW,
+            Instant.parse("2026-07-10T14:00:00Z")
+        );
+    }
+
+    private record TestParsedObservationReviewProjection(
+        UUID parsedObservationId,
+        UUID reportId,
+        String reportOriginalFilename,
+        String labName,
+        LocalDate reportDate,
+        UUID testId,
+        String testName,
+        String rawTestName,
+        LocalDate observedAt,
+        String valueText,
+        BigDecimal numericValue,
+        String unit,
+        String referenceRange,
+        ParsedObservationStatus status,
+        Instant createdAt
+    ) implements ParsedObservationReviewProjection {
+
+        @Override
+        public UUID getParsedObservationId() {
+            return parsedObservationId;
+        }
+
+        @Override
+        public UUID getReportId() {
+            return reportId;
+        }
+
+        @Override
+        public String getReportOriginalFilename() {
+            return reportOriginalFilename;
+        }
+
+        @Override
+        public String getLabName() {
+            return labName;
+        }
+
+        @Override
+        public LocalDate getReportDate() {
+            return reportDate;
+        }
+
+        @Override
+        public UUID getTestId() {
+            return testId;
+        }
+
+        @Override
+        public String getTestName() {
+            return testName;
+        }
+
+        @Override
+        public String getRawTestName() {
+            return rawTestName;
+        }
+
+        @Override
+        public LocalDate getObservedAt() {
+            return observedAt;
+        }
+
+        @Override
+        public String getValueText() {
+            return valueText;
+        }
+
+        @Override
+        public BigDecimal getNumericValue() {
+            return numericValue;
+        }
+
+        @Override
+        public String getUnit() {
+            return unit;
+        }
+
+        @Override
+        public String getReferenceRange() {
+            return referenceRange;
+        }
+
+        @Override
+        public ParsedObservationStatus getStatus() {
+            return status;
+        }
+
+        @Override
+        public Instant getCreatedAt() {
+            return createdAt;
+        }
     }
 
     private void allowDefaultUserAccess(UUID userId) {

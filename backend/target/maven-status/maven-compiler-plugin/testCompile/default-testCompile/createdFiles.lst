@@ -18,6 +18,7 @@ com/medicalreportapp/users/ClinicianPatientServiceTest.class
 com/medicalreportapp/users/PatientClinicianAccessServiceTest$TestUserAccessService.class
 com/medicalreportapp/users/UserContextResolverTest$2.class
 com/medicalreportapp/observations/LabObservationControllerTest.class
+com/medicalreportapp/reports/ParsedObservationServiceTest$TestParsedObservationReviewProjection.class
 com/medicalreportapp/users/UserContextResolverTest$RepositoryCallHandler.class
 com/medicalreportapp/observations/LabObservationServiceTest$TestTrendPoint.class
 com/medicalreportapp/users/ClinicianPatientControllerTest.class

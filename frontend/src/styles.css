@@ -1081,6 +1081,10 @@ h2 {
   min-width: 820px;
 }
 
+.review-queue-table {
+  min-width: 1120px;
+}
+
 .trend-source-detail {
   display: flex;
   flex-direction: column;

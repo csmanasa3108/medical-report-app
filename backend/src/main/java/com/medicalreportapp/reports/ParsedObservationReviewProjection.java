@@ -21,6 +21,8 @@ interface ParsedObservationReviewProjection {
 
     String getTestName();
 
+    String getRawTestName();
+
     LocalDate getObservedAt();
 
     String getValueText();

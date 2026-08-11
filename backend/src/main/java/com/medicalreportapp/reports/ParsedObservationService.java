@@ -9,12 +9,15 @@ import com.medicalreportapp.testcatalog.TestCatalogLookupService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,6 +69,7 @@ class ParsedObservationService {
         }
 
         parsedObservationRepository.deleteByReportIdAndStatus(report.getId(), ParsedObservationStatus.NEEDS_REVIEW);
+        parsedObservationRepository.flush();
         List<ParsedObservation> preservedObservations = parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(
             report.getId(),
             List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)
@@ -91,7 +95,7 @@ class ParsedObservationService {
         List<ParsedObservation> uniqueParsedObservations = deduplicateParsedObservations(parsedObservations, preservedObservations);
 
         if (!uniqueParsedObservations.isEmpty()) {
-            parsedObservationRepository.saveAll(uniqueParsedObservations);
+            parsedObservationRepository.saveAllAndFlush(uniqueParsedObservations);
         }
 
         return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
@@ -99,9 +103,10 @@ class ParsedObservationService {
             .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ParsedObservationResponse> findByReportId(UUID reportId) {
         Report report = findReportForCurrentUserForRead(reportId);
+        cleanupDuplicateNeedsReviewObservations(report.getId());
         return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
             .map(ParsedObservationResponse::from)
             .toList();
@@ -110,7 +115,7 @@ class ParsedObservationService {
     @Transactional(readOnly = true)
     public List<ParsedObservationReviewResponse> findReviewQueue(UUID requestedPatientId, ParsedObservationStatus status) {
         UUID patientUserId = defaultUserProvider.resolveReadablePatientId(requestedPatientId);
-        return parsedObservationRepository.findReviewQueueByPatientUserIdAndStatus(patientUserId, status).stream()
+        return deduplicateReviewQueue(parsedObservationRepository.findReviewQueueByPatientUserIdAndStatus(patientUserId, status)).stream()
             .map(ParsedObservationReviewResponse::from)
             .toList();
     }
@@ -286,6 +291,37 @@ class ParsedObservationService {
             .toList();
     }
 
+    private void cleanupDuplicateNeedsReviewObservations(UUID reportId) {
+        List<ParsedObservation> needsReviewObservations =
+            parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(reportId, ParsedObservationStatus.NEEDS_REVIEW);
+        Map<ParsedObservationDeduplicationKey, ParsedObservation> firstObservationByKey = new LinkedHashMap<>();
+        List<ParsedObservation> duplicateObservations = new ArrayList<>();
+
+        for (ParsedObservation observation : needsReviewObservations) {
+            ParsedObservation existingObservation = firstObservationByKey.putIfAbsent(
+                ParsedObservationDeduplicationKey.from(observation),
+                observation
+            );
+            if (existingObservation != null) {
+                duplicateObservations.add(observation);
+            }
+        }
+
+        if (!duplicateObservations.isEmpty()) {
+            parsedObservationRepository.deleteAllInBatch(duplicateObservations);
+            parsedObservationRepository.flush();
+        }
+    }
+
+    private static List<ParsedObservationReviewProjection> deduplicateReviewQueue(
+        List<ParsedObservationReviewProjection> observations
+    ) {
+        Set<ParsedObservationDeduplicationKey> seenKeys = new HashSet<>();
+        return observations.stream()
+            .filter(observation -> seenKeys.add(ParsedObservationDeduplicationKey.from(observation)))
+            .toList();
+    }
+
     private static ReferenceBounds parseReferenceBounds(String referenceRange) {
         if (!StringUtils.hasText(referenceRange)) {
             return ReferenceBounds.unknown();
@@ -325,8 +361,10 @@ class ParsedObservationService {
 
     private record ParsedObservationDeduplicationKey(
         UUID matchedTestId,
+        UUID reportId,
         String rawTestName,
         LocalDate observedAt,
+        String rawValue,
         BigDecimal numericValue,
         String unit
     ) {
@@ -335,8 +373,23 @@ class ParsedObservationService {
             UUID matchedTestId = observation.getMatchedTestId();
             return new ParsedObservationDeduplicationKey(
                 matchedTestId,
+                observation.getReportId(),
                 matchedTestId == null ? normalizeRawTestName(observation.getRawTestName()) : null,
                 observation.getObservedAt(),
+                normalizeValueText(observation.getRawValue()),
+                observation.getNumericValue(),
+                trimToNull(observation.getUnit())
+            );
+        }
+
+        private static ParsedObservationDeduplicationKey from(ParsedObservationReviewProjection observation) {
+            UUID matchedTestId = observation.getTestId();
+            return new ParsedObservationDeduplicationKey(
+                matchedTestId,
+                observation.getReportId(),
+                matchedTestId == null ? normalizeRawTestName(observation.getRawTestName()) : null,
+                observation.getObservedAt(),
+                normalizeValueText(observation.getValueText()),
                 observation.getNumericValue(),
                 trimToNull(observation.getUnit())
             );
@@ -345,6 +398,19 @@ class ParsedObservationService {
         private static String normalizeRawTestName(String rawTestName) {
             String trimmedValue = trimToNull(rawTestName);
             return trimmedValue == null ? null : trimmedValue.toLowerCase(Locale.ROOT);
+        }
+
+        private static String normalizeValueText(String valueText) {
+            String trimmedValue = trimToNull(valueText);
+            if (trimmedValue == null) {
+                return null;
+            }
+
+            try {
+                return new BigDecimal(trimmedValue).stripTrailingZeros().toPlainString();
+            } catch (NumberFormatException exception) {
+                return trimmedValue.toLowerCase(Locale.ROOT);
+            }
         }
 
         private static String trimToNull(String value) {
@@ -364,15 +430,17 @@ class ParsedObservationService {
                 return false;
             }
             return Objects.equals(matchedTestId, otherKey.matchedTestId)
+                && Objects.equals(reportId, otherKey.reportId)
                 && Objects.equals(rawTestName, otherKey.rawTestName)
                 && Objects.equals(observedAt, otherKey.observedAt)
+                && Objects.equals(rawValue, otherKey.rawValue)
                 && sameNumericValue(numericValue, otherKey.numericValue)
                 && Objects.equals(unit, otherKey.unit);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(matchedTestId, rawTestName, observedAt, numericValueHash(), unit);
+            return Objects.hash(matchedTestId, reportId, rawTestName, observedAt, rawValue, numericValueHash(), unit);
         }
 
         private boolean sameNumericValue(BigDecimal left, BigDecimal right) {

@@ -14,6 +14,7 @@ import NewReportPage from "./pages/NewReportPage";
 import PatientsPage from "./pages/PatientsPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import ReportsListPage from "./pages/ReportsListPage";
+import ReviewQueuePage from "./pages/ReviewQueuePage";
 import TrendPage from "./pages/TrendPage";
 import TrendsPage from "./pages/TrendsPage";
 import soveraHealthWordmark from "./assets/brand/soverahealth-wordmark.png";
@@ -67,6 +68,7 @@ function App() {
               </>
             ) : null}
             <NavLink to="/trends">Trends</NavLink>
+            <NavLink to="/review">Review Queue</NavLink>
             <NavLink to="/activity">Activity</NavLink>
           </nav>
           <div className="dev-user-switcher" aria-label="Development user">
@@ -124,6 +126,10 @@ function App() {
             element={<CareTeamPage devUser={selectedDevUser} />}
           />
           <Route path="/trends" element={<TrendsPage devUser={selectedDevUser} />} />
+          <Route
+            path="/review"
+            element={<ReviewQueuePage devUser={selectedDevUser} />}
+          />
           <Route
             path="/activity"
             element={<ActivityPage devUser={selectedDevUser} />}

@@ -8,6 +8,7 @@ import {
   getReport,
   getTests,
   ParsedObservationResponse,
+  rejectParsedObservation,
   ReportResponse,
   TestCatalogResponse,
   updateParsedObservation,
@@ -78,7 +79,7 @@ function formatOptionalValue(value: string | number | null | undefined) {
 
 function canConfirmParsedObservation(observation: ParsedObservationResponse) {
   return (
-    observation.status !== "CONFIRMED" &&
+    observation.status === "NEEDS_REVIEW" &&
     Boolean(observation.id) &&
     Boolean(observation.matchedTestId) &&
     observation.numericValue !== null &&
@@ -158,6 +159,9 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const [isParsedLoading, setIsParsedLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<"refresh" | null>(null);
   const [confirmingObservationId, setConfirmingObservationId] = useState<
+    string | null
+  >(null);
+  const [rejectingObservationId, setRejectingObservationId] = useState<
     string | null
   >(null);
   const [editingObservationId, setEditingObservationId] = useState<string | null>(
@@ -371,6 +375,26 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     }
   }
 
+  async function handleRejectParsedObservation(parsedObservationId: string) {
+    setRejectingObservationId(parsedObservationId);
+    setParsedErrorMessage("");
+    setActionMessage("");
+
+    try {
+      await rejectParsedObservation(parsedObservationId);
+      await refreshReportAndParsedObservations();
+      setActionMessage("Parsed observation rejected.");
+    } catch (error: unknown) {
+      setParsedErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to reject parsed observation."
+      );
+    } finally {
+      setRejectingObservationId(null);
+    }
+  }
+
   async function handleDeleteReport() {
     if (!reportId) {
       return;
@@ -406,6 +430,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const isActionRunning =
     activeAction !== null ||
     confirmingObservationId !== null ||
+    rejectingObservationId !== null ||
     savingObservationId !== null ||
     isDeletingReport;
 
@@ -571,10 +596,14 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                       canConfirmParsedObservation(observation);
                     const isConfirming =
                       observation.id === confirmingObservationId;
+                    const isRejecting =
+                      observation.id === rejectingObservationId;
                     const isConfirmed = observation.status === "CONFIRMED";
+                    const isReviewable = observation.status === "NEEDS_REVIEW";
                     const isEditing = observation.id === editingObservationId;
                     const canEdit =
-                      !isClinician && Boolean(observation.id) && !isConfirmed;
+                      !isClinician && Boolean(observation.id) && isReviewable;
+                    const canReject = !isClinician && Boolean(observation.id) && isReviewable;
                     const isSaving = observation.id === savingObservationId;
                     const selectedMatchedTestExists =
                       editForm.matchedTestId === "" ||
@@ -752,6 +781,11 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                                   Edit
                                 </button>
                               ) : null}
+                              {isClinician ? (
+                                <span className="dashboard-summary-detail">
+                                  View only
+                                </span>
+                              ) : null}
                               {!isClinician && isConfirmable && observation.id ? (
                                 <button
                                   className="action-button table-action-button"
@@ -763,6 +797,23 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                                 >
                                   {isConfirming ? "Confirming..." : "Confirm"}
                                 </button>
+                              ) : null}
+                              {canReject && observation.id ? (
+                                <button
+                                  className="action-button secondary danger table-action-button"
+                                  type="button"
+                                  onClick={() =>
+                                    handleRejectParsedObservation(observation.id!)
+                                  }
+                                  disabled={isActionRunning}
+                                >
+                                  {isRejecting ? "Rejecting..." : "Reject"}
+                                </button>
+                              ) : null}
+                              {!isClinician && !isReviewable ? (
+                                <span className="dashboard-summary-detail">
+                                  No action
+                                </span>
                               ) : null}
                             </div>
                           )}

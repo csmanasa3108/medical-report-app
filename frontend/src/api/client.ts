@@ -213,6 +213,24 @@ export type ParsedObservationResponse = {
   status: string | null;
 };
 
+export type ParsedObservationReviewResponse = {
+  parsedObservationId: string;
+  reportId: string;
+  reportOriginalFilename: string;
+  labName: string | null;
+  reportDate: string | null;
+  testId: string | null;
+  testName: string | null;
+  observedAt: string | null;
+  valueText: string | null;
+  numericValue: number | null;
+  unit: string | null;
+  referenceRange: string | null;
+  abnormalFlag: string | null;
+  status: string;
+  createdAt: string;
+};
+
 export type UpdateParsedObservationRequest = {
   rawTestName: string | null;
   matchedTestId: string | null;
@@ -430,9 +448,24 @@ export function getParsedObservations(reportId: string) {
   );
 }
 
+export function getParsedObservationReviewQueue(patientId?: string | null) {
+  return apiRequest<ParsedObservationReviewResponse[]>(
+    withPatientScope("/api/review/parsed-observations", patientId)
+  );
+}
+
 export function confirmParsedObservation(parsedObservationId: string) {
-  return apiCommand(
+  return apiRequest<LabObservationResponse>(
     `/api/parsed-observations/${encodeURIComponent(parsedObservationId)}/confirm`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function rejectParsedObservation(parsedObservationId: string) {
+  return apiRequest<ParsedObservationReviewResponse>(
+    `/api/parsed-observations/${encodeURIComponent(parsedObservationId)}/reject`,
     {
       method: "POST"
     }
