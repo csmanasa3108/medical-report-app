@@ -1,13 +1,13 @@
 com/medicalreportapp/health/HealthControllerTest.class
-com/medicalreportapp/observations/LabObservationControllerTest.class
 com/medicalreportapp/observations/LabObservationServiceTest.class
 com/medicalreportapp/observations/LabObservationAnalyticsControllerTest.class
 com/medicalreportapp/reports/ReportControllerTest.class
 com/medicalreportapp/reports/ReportServiceTest.class
 com/medicalreportapp/reports/ReportUploadProcessingServiceTest.class
+com/medicalreportapp/users/ClinicianPatientServiceTest.class
+com/medicalreportapp/observations/LabObservationControllerTest.class
 com/medicalreportapp/observations/LabObservationServiceTest$TestTrendPoint.class
 com/medicalreportapp/users/ClinicianPatientControllerTest.class
 com/medicalreportapp/reports/ParsedObservationServiceTest.class
 com/medicalreportapp/users/UserAccessServiceTest.class
-com/medicalreportapp/users/ClinicianPatientServiceTest.class
 com/medicalreportapp/users/ClinicianPatientServiceTest$TestAssignedPatientProjection.class

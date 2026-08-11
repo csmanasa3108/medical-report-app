@@ -47,8 +47,13 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/AssignedPatientResponse.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/ClinicianPatientController.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/ClinicianPatientService.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/GrantClinicianAccessRequest.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccess.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessController.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessProjection.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessRepository.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessResponse.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessService.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/PatientClinicianAccessStatus.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/UserAccessService.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/users/UserContextResolver.java

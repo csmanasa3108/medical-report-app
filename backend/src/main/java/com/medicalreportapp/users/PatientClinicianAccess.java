@@ -35,6 +35,18 @@ public class PatientClinicianAccess {
     protected PatientClinicianAccess() {
     }
 
+    PatientClinicianAccess(
+        UUID id,
+        UUID patientUserId,
+        UUID clinicianUserId,
+        PatientClinicianAccessStatus status
+    ) {
+        this.id = id;
+        this.patientUserId = patientUserId;
+        this.clinicianUserId = clinicianUserId;
+        this.status = status;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -53,5 +65,13 @@ public class PatientClinicianAccess {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    void activate() {
+        this.status = PatientClinicianAccessStatus.ACTIVE;
+    }
+
+    void revoke() {
+        this.status = PatientClinicianAccessStatus.REVOKED;
     }
 }
