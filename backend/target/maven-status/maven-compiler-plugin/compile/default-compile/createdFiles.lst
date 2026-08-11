@@ -34,6 +34,7 @@ com/medicalreportapp/users/PatientClinicianAccess.class
 com/medicalreportapp/reports/ParsedObservationService.class
 com/medicalreportapp/reports/ReportRepository.class
 com/medicalreportapp/reports/ReportController.class
+com/medicalreportapp/reports/ParsedObservationReviewProjection.class
 com/medicalreportapp/users/UserAccessService.class
 com/medicalreportapp/observations/LabObservationService.class
 com/medicalreportapp/users/GrantClinicianAccessRequest.class
@@ -50,6 +51,7 @@ com/medicalreportapp/users/PatientClinicianAccessService.class
 com/medicalreportapp/observations/LabObservationTrendResponse.class
 com/medicalreportapp/users/AppUserRole.class
 com/medicalreportapp/observations/LabObservationSourceType.class
+com/medicalreportapp/reports/ParsedObservationReviewResponse.class
 com/medicalreportapp/config/WebCorsConfig.class
 com/medicalreportapp/users/AppUserRepository.class
 com/medicalreportapp/observations/CreateLabObservationCommand.class

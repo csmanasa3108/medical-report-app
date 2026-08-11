@@ -338,6 +338,67 @@ class ReportControllerTest {
     }
 
     @Test
+    void findParsedObservationReviewQueueReturnsNeedsReviewRowsByDefault() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID testId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        when(parsedObservationService.findReviewQueue(null, ParsedObservationStatus.NEEDS_REVIEW))
+            .thenReturn(List.of(new ParsedObservationReviewResponse(
+                parsedObservationId,
+                reportId,
+                "lab-report-july.pdf",
+                "Quest Diagnostics",
+                LocalDate.parse("2026-07-09"),
+                testId,
+                "Hemoglobin",
+                LocalDate.parse("2026-07-09"),
+                "12.8",
+                new BigDecimal("12.8000"),
+                "g/dL",
+                "12.0 - 15.5",
+                "normal",
+                "NEEDS_REVIEW",
+                Instant.parse("2026-07-10T14:00:00Z")
+            )));
+
+        mockMvc.perform(get("/api/review/parsed-observations"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].parsedObservationId").value(parsedObservationId.toString()))
+            .andExpect(jsonPath("$[0].reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$[0].reportOriginalFilename").value("lab-report-july.pdf"))
+            .andExpect(jsonPath("$[0].labName").value("Quest Diagnostics"))
+            .andExpect(jsonPath("$[0].reportDate").value("2026-07-09"))
+            .andExpect(jsonPath("$[0].testId").value(testId.toString()))
+            .andExpect(jsonPath("$[0].testName").value("Hemoglobin"))
+            .andExpect(jsonPath("$[0].observedAt").value("2026-07-09"))
+            .andExpect(jsonPath("$[0].valueText").value("12.8"))
+            .andExpect(jsonPath("$[0].numericValue").value(12.8000))
+            .andExpect(jsonPath("$[0].unit").value("g/dL"))
+            .andExpect(jsonPath("$[0].referenceRange").value("12.0 - 15.5"))
+            .andExpect(jsonPath("$[0].abnormalFlag").value("normal"))
+            .andExpect(jsonPath("$[0].status").value("NEEDS_REVIEW"))
+            .andExpect(jsonPath("$[0].createdAt").value("2026-07-10T14:00:00Z"));
+
+        verify(parsedObservationService).findReviewQueue(null, ParsedObservationStatus.NEEDS_REVIEW);
+    }
+
+    @Test
+    void findParsedObservationReviewQueueSupportsStatusAndPatientFilters() throws Exception {
+        UUID patientId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        when(parsedObservationService.findReviewQueue(patientId, ParsedObservationStatus.REJECTED))
+            .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/review/parsed-observations")
+                .param("patientId", patientId.toString())
+                .param("status", "REJECTED"))
+            .andExpect(status().isOk());
+
+        verify(parsedObservationService).findReviewQueue(patientId, ParsedObservationStatus.REJECTED);
+    }
+
+    @Test
     void updateParsedObservationReturnsUpdatedParsedRow() throws Exception {
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
@@ -465,6 +526,50 @@ class ReportControllerTest {
 
         mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/confirm", parsedObservationId))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectParsedObservationReturnsRejectedReviewRow() throws Exception {
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationService.reject(parsedObservationId))
+            .thenReturn(new ParsedObservationReviewResponse(
+                parsedObservationId,
+                reportId,
+                "lab-report-july.pdf",
+                "Quest Diagnostics",
+                LocalDate.parse("2026-07-09"),
+                null,
+                "Vitamin D",
+                LocalDate.parse("2026-07-09"),
+                "24",
+                new BigDecimal("24.0000"),
+                "ng/mL",
+                "30 - 100",
+                "abnormal",
+                "REJECTED",
+                Instant.parse("2026-07-10T14:00:00Z")
+            ));
+
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/reject", parsedObservationId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.parsedObservationId").value(parsedObservationId.toString()))
+            .andExpect(jsonPath("$.reportId").value(reportId.toString()))
+            .andExpect(jsonPath("$.status").value("REJECTED"));
+
+        verify(parsedObservationService).reject(parsedObservationId);
+    }
+
+    @Test
+    void rejectParsedObservationReturnsConflictForConfirmedRow() throws Exception {
+        UUID parsedObservationId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+
+        when(parsedObservationService.reject(parsedObservationId))
+            .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed parsed observations cannot be rejected"));
+
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/reject", parsedObservationId))
+            .andExpect(status().isConflict());
     }
 
     @Test

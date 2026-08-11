@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,6 +43,9 @@ class AccessControlRegressionTest {
     private static final UUID UNASSIGNED_PATIENT_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000942");
     private static final UUID DEMO_PATIENT_AUDIT_EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000951");
     private static final UUID UNASSIGNED_PATIENT_AUDIT_EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000952");
+    private static final UUID DEMO_PATIENT_PARSED_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000961");
+    private static final UUID UNASSIGNED_PATIENT_PARSED_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000962");
+    private static final UUID DEMO_PATIENT_CONFIRMED_PARSED_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000963");
 
     private static final String DEMO_PATIENT_REPORT_FILENAME = "access-control-demo-patient.pdf";
     private static final String UNASSIGNED_PATIENT_REPORT_FILENAME = "access-control-unassigned-patient.pdf";
@@ -197,6 +201,91 @@ class AccessControlRegressionTest {
     }
 
     @Test
+    void patientSeesOnlyOwnNeedsReviewParsedObservations() throws Exception {
+        mockMvc.perform(get("/api/review/parsed-observations").header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].parsedObservationId", hasItem(DEMO_PATIENT_PARSED_OBSERVATION_ID.toString())))
+            .andExpect(jsonPath("$[*].parsedObservationId", not(hasItem(UNASSIGNED_PATIENT_PARSED_OBSERVATION_ID.toString()))))
+            .andExpect(jsonPath("$[*].parsedObservationId", not(hasItem(DEMO_PATIENT_CONFIRMED_PARSED_OBSERVATION_ID.toString()))));
+    }
+
+    @Test
+    void patientCannotListAnotherPatientsReviewQueue() throws Exception {
+        mockMvc.perform(get("/api/review/parsed-observations")
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID)
+                .param("patientId", UNASSIGNED_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void clinicianCanListAssignedPatientReviewQueueOnlyWithPatientId() throws Exception {
+        mockMvc.perform(get("/api/review/parsed-observations").header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
+            .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/review/parsed-observations")
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID)
+                .param("patientId", DEMO_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].parsedObservationId", hasItem(DEMO_PATIENT_PARSED_OBSERVATION_ID.toString())))
+            .andExpect(jsonPath("$[*].parsedObservationId", not(hasItem(UNASSIGNED_PATIENT_PARSED_OBSERVATION_ID.toString()))));
+    }
+
+    @Test
+    void clinicianCannotListUnassignedPatientReviewQueue() throws Exception {
+        mockMvc.perform(get("/api/review/parsed-observations")
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID)
+                .param("patientId", UNASSIGNED_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void patientCanRejectOwnNeedsReviewParsedObservationAndAuditMetadataOnly() throws Exception {
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/reject", DEMO_PATIENT_PARSED_OBSERVATION_ID)
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.parsedObservationId").value(DEMO_PATIENT_PARSED_OBSERVATION_ID.toString()))
+            .andExpect(jsonPath("$.status").value("REJECTED"));
+
+        String parsedObservationStatus = jdbcTemplate.queryForObject(
+            "select status from parsed_observations where id = ?",
+            String.class,
+            DEMO_PATIENT_PARSED_OBSERVATION_ID
+        );
+        assertThat(parsedObservationStatus).isEqualTo("REJECTED");
+
+        Integer auditEventCount = jdbcTemplate.queryForObject(
+            "select count(*) from audit_events where action = ? and resource_id = ?",
+            Integer.class,
+            "PARSED_OBSERVATION_REJECTED",
+            DEMO_PATIENT_PARSED_OBSERVATION_ID
+        );
+        assertThat(auditEventCount).isEqualTo(1);
+
+        String auditDetails = jdbcTemplate.queryForObject(
+            "select details from audit_events where action = ? and resource_id = ?",
+            String.class,
+            "PARSED_OBSERVATION_REJECTED",
+            DEMO_PATIENT_PARSED_OBSERVATION_ID
+        );
+        assertThat(auditDetails).contains(DEMO_PATIENT_REPORT_ID.toString());
+        assertThat(auditDetails).doesNotContain("101.0000", "Access Control Regression Test", "mg/dL");
+    }
+
+    @Test
+    void rejectingConfirmedParsedObservationReturnsConflict() throws Exception {
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/reject", DEMO_PATIENT_CONFIRMED_PARSED_OBSERVATION_ID)
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    void clinicianCannotRejectThroughParsedObservationEndpoint() throws Exception {
+        mockMvc.perform(post("/api/parsed-observations/{parsedObservationId}/reject", DEMO_PATIENT_PARSED_OBSERVATION_ID)
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void clinicianPatientScopedEndpointsRequirePatientId() throws Exception {
         mockMvc.perform(get("/api/reports").header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
             .andExpect(status().isBadRequest())
@@ -312,6 +401,30 @@ class AccessControlRegressionTest {
         );
         insertObservation(DEMO_PATIENT_OBSERVATION_ID, DEMO_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-10"), new BigDecimal("101.0000"));
         insertObservation(UNASSIGNED_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-20"), new BigDecimal("202.0000"));
+        insertParsedObservation(
+            DEMO_PATIENT_PARSED_OBSERVATION_ID,
+            DEMO_PATIENT_REPORT_ID,
+            LocalDate.parse("2026-01-10"),
+            new BigDecimal("101.0000"),
+            "NEEDS_REVIEW",
+            Timestamp.from(Instant.parse("2026-01-02T00:00:00Z"))
+        );
+        insertParsedObservation(
+            UNASSIGNED_PATIENT_PARSED_OBSERVATION_ID,
+            UNASSIGNED_PATIENT_REPORT_ID,
+            LocalDate.parse("2026-01-20"),
+            new BigDecimal("202.0000"),
+            "NEEDS_REVIEW",
+            Timestamp.from(Instant.parse("2026-01-03T00:00:00Z"))
+        );
+        insertParsedObservation(
+            DEMO_PATIENT_CONFIRMED_PARSED_OBSERVATION_ID,
+            DEMO_PATIENT_REPORT_ID,
+            LocalDate.parse("2026-01-11"),
+            new BigDecimal("111.0000"),
+            "CONFIRMED",
+            Timestamp.from(Instant.parse("2026-01-04T00:00:00Z"))
+        );
         insertAuditEvent(
             DEMO_PATIENT_AUDIT_EVENT_ID,
             DEMO_PATIENT_APP_USER_ID,
@@ -464,6 +577,44 @@ class AccessControlRegressionTest {
         );
     }
 
+    private void insertParsedObservation(
+        UUID parsedObservationId,
+        UUID reportId,
+        LocalDate observedAt,
+        BigDecimal numericValue,
+        String status,
+        Timestamp createdAt
+    ) {
+        jdbcTemplate.update("""
+            insert into parsed_observations (
+                id,
+                report_id,
+                raw_test_name,
+                matched_test_id,
+                observed_at,
+                raw_value,
+                numeric_value,
+                unit,
+                reference_range,
+                status,
+                created_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            parsedObservationId,
+            reportId,
+            "Access Control Regression Test",
+            TEST_ID,
+            Date.valueOf(observedAt),
+            numericValue.toPlainString(),
+            numericValue,
+            "mg/dL",
+            "0 - 999",
+            status,
+            createdAt
+        );
+    }
+
     private void insertAuditEvent(UUID auditEventId, UUID patientId, UUID reportId, String action, String details) {
         jdbcTemplate.update("""
             insert into audit_events (
@@ -493,6 +644,7 @@ class AccessControlRegressionTest {
 
     private void cleanTestRows() {
         jdbcTemplate.update("delete from audit_events where patient_user_id in (?, ?)", DEMO_PATIENT_APP_USER_ID, UNASSIGNED_PATIENT_APP_USER_ID);
+        jdbcTemplate.update("delete from parsed_observations where id in (?, ?, ?)", DEMO_PATIENT_PARSED_OBSERVATION_ID, UNASSIGNED_PATIENT_PARSED_OBSERVATION_ID, DEMO_PATIENT_CONFIRMED_PARSED_OBSERVATION_ID);
         jdbcTemplate.update("delete from lab_observations where id in (?, ?)", DEMO_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_OBSERVATION_ID);
         jdbcTemplate.update("delete from reports where id in (?, ?)", DEMO_PATIENT_REPORT_ID, UNASSIGNED_PATIENT_REPORT_ID);
         if (activeAccessId != null) {

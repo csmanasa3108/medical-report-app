@@ -88,6 +88,14 @@ class ReportController {
         return parsedObservationService.findByReportId(reportId);
     }
 
+    @GetMapping("/api/review/parsed-observations")
+    public List<ParsedObservationReviewResponse> findParsedObservationReviewQueue(
+        @RequestParam(value = "patientId", required = false) UUID patientId,
+        @RequestParam(value = "status", defaultValue = "NEEDS_REVIEW") ParsedObservationStatus status
+    ) {
+        return parsedObservationService.findReviewQueue(patientId, status);
+    }
+
     @PatchMapping("/api/parsed-observations/{parsedObservationId}")
     public ParsedObservationResponse updateParsedObservation(
         @PathVariable UUID parsedObservationId,
@@ -99,5 +107,10 @@ class ReportController {
     @PostMapping("/api/parsed-observations/{parsedObservationId}/confirm")
     public LabObservationResponse confirmParsedObservation(@PathVariable UUID parsedObservationId) {
         return parsedObservationService.confirm(parsedObservationId);
+    }
+
+    @PostMapping("/api/parsed-observations/{parsedObservationId}/reject")
+    public ParsedObservationReviewResponse rejectParsedObservation(@PathVariable UUID parsedObservationId) {
+        return parsedObservationService.reject(parsedObservationId);
     }
 }

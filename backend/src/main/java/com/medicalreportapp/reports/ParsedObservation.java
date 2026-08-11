@@ -174,4 +174,8 @@ class ParsedObservation {
         this.confirmedObservationId = confirmedObservationId;
         this.confirmedAt = confirmedAt;
     }
+
+    void markRejected() {
+        this.status = ParsedObservationStatus.REJECTED;
+    }
 }

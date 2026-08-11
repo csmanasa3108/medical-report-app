@@ -65,10 +65,10 @@ class ParsedObservationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report has no extracted text");
         }
 
-        parsedObservationRepository.deleteByReportIdAndStatusNot(report.getId(), ParsedObservationStatus.CONFIRMED);
-        List<ParsedObservation> confirmedObservations = parsedObservationRepository.findByReportIdAndStatusOrderByCreatedAtAsc(
+        parsedObservationRepository.deleteByReportIdAndStatus(report.getId(), ParsedObservationStatus.NEEDS_REVIEW);
+        List<ParsedObservation> preservedObservations = parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(
             report.getId(),
-            ParsedObservationStatus.CONFIRMED
+            List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)
         );
         List<ParsedObservation> parsedObservations = parsedObservationParser.parse(
             report.getExtractedText(),
@@ -88,7 +88,7 @@ class ParsedObservationService {
                 observation.getStatus()
             ))
             .toList();
-        List<ParsedObservation> uniqueParsedObservations = deduplicateParsedObservations(parsedObservations, confirmedObservations);
+        List<ParsedObservation> uniqueParsedObservations = deduplicateParsedObservations(parsedObservations, preservedObservations);
 
         if (!uniqueParsedObservations.isEmpty()) {
             parsedObservationRepository.saveAll(uniqueParsedObservations);
@@ -104,6 +104,14 @@ class ParsedObservationService {
         Report report = findReportForCurrentUserForRead(reportId);
         return parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(report.getId()).stream()
             .map(ParsedObservationResponse::from)
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParsedObservationReviewResponse> findReviewQueue(UUID requestedPatientId, ParsedObservationStatus status) {
+        UUID patientUserId = defaultUserProvider.resolveReadablePatientId(requestedPatientId);
+        return parsedObservationRepository.findReviewQueueByPatientUserIdAndStatus(patientUserId, status).stream()
+            .map(ParsedObservationReviewResponse::from)
             .toList();
     }
 
@@ -203,6 +211,29 @@ class ParsedObservationService {
         return response;
     }
 
+    @Transactional
+    public ParsedObservationReviewResponse reject(UUID parsedObservationId) {
+        ParsedObservation parsedObservation = parsedObservationRepository.findByIdForUpdate(parsedObservationId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parsed observation not found"));
+        Report report = findReportForCurrentUserForWrite(parsedObservation.getReportId());
+
+        if (parsedObservation.getStatus() == ParsedObservationStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed parsed observations cannot be rejected");
+        }
+        if (parsedObservation.getStatus() != ParsedObservationStatus.REJECTED) {
+            parsedObservation.markRejected();
+            auditParsedObservationRejected(report, parsedObservation);
+        }
+
+        return ParsedObservationReviewResponse.from(
+            parsedObservation,
+            report,
+            parsedObservation.getMatchedTestId() == null
+                ? null
+                : testCatalogLookupService.findById(parsedObservation.getMatchedTestId()).orElse(null)
+        );
+    }
+
     private void auditParsedObservationConfirmed(Report report, ParsedObservation parsedObservation, UUID labObservationId) {
         auditService.record(
             "PARSED_OBSERVATION_CONFIRMED",
@@ -210,6 +241,16 @@ class ParsedObservationService {
             "PARSED_OBSERVATION",
             parsedObservation.getId(),
             "{\"reportId\":\"" + report.getId() + "\",\"labObservationId\":\"" + labObservationId + "\"}"
+        );
+    }
+
+    private void auditParsedObservationRejected(Report report, ParsedObservation parsedObservation) {
+        auditService.record(
+            "PARSED_OBSERVATION_REJECTED",
+            report.getPatientUserId(),
+            "PARSED_OBSERVATION",
+            parsedObservation.getId(),
+            "{\"reportId\":\"" + report.getId() + "\"}"
         );
     }
 
@@ -241,7 +282,7 @@ class ParsedObservationService {
         }
 
         return uniqueObservations.values().stream()
-            .filter(observation -> observation.getStatus() != ParsedObservationStatus.CONFIRMED)
+            .filter(observation -> observation.getStatus() == ParsedObservationStatus.NEEDS_REVIEW)
             .toList();
     }
 
