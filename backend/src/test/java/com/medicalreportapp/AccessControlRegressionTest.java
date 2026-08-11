@@ -1,6 +1,7 @@
 package com.medicalreportapp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,6 +40,8 @@ class AccessControlRegressionTest {
     private static final UUID UNASSIGNED_PATIENT_REPORT_ID = UUID.fromString("00000000-0000-0000-0000-000000000932");
     private static final UUID DEMO_PATIENT_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000941");
     private static final UUID UNASSIGNED_PATIENT_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000942");
+    private static final UUID DEMO_PATIENT_AUDIT_EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000951");
+    private static final UUID UNASSIGNED_PATIENT_AUDIT_EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000952");
 
     private static final String DEMO_PATIENT_REPORT_FILENAME = "access-control-demo-patient.pdf";
     private static final String UNASSIGNED_PATIENT_REPORT_FILENAME = "access-control-unassigned-patient.pdf";
@@ -151,6 +154,45 @@ class AccessControlRegressionTest {
     void clinicianCannotRevokeThroughPatientEndpoint() throws Exception {
         mockMvc.perform(patch("/api/patient/clinician-access/{accessId}/revoke", activeAccessId)
                 .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void patientSeesOnlyOwnAuditEvents() throws Exception {
+        mockMvc.perform(get("/api/audit-events").header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].id", hasItem(DEMO_PATIENT_AUDIT_EVENT_ID.toString())))
+            .andExpect(jsonPath("$[*].id", not(hasItem(UNASSIGNED_PATIENT_AUDIT_EVENT_ID.toString()))))
+            .andExpect(jsonPath("$[*].details", not(hasItem(containsString("raw extracted report text")))))
+            .andExpect(jsonPath("$[*].details", not(hasItem(containsString("12.8000")))));
+    }
+
+    @Test
+    void patientCannotReadAnotherPatientsAuditEvents() throws Exception {
+        mockMvc.perform(get("/api/audit-events")
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID)
+                .param("patientId", UNASSIGNED_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void clinicianCanReadAssignedPatientAuditEventsOnlyWithPatientId() throws Exception {
+        mockMvc.perform(get("/api/audit-events").header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
+            .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/audit-events")
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID)
+                .param("patientId", DEMO_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].id", hasItem(DEMO_PATIENT_AUDIT_EVENT_ID.toString())))
+            .andExpect(jsonPath("$[*].id", not(hasItem(UNASSIGNED_PATIENT_AUDIT_EVENT_ID.toString()))));
+    }
+
+    @Test
+    void clinicianCannotReadUnassignedPatientAuditEvents() throws Exception {
+        mockMvc.perform(get("/api/audit-events")
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID)
+                .param("patientId", UNASSIGNED_PATIENT_APP_USER_ID.toString()))
             .andExpect(status().isForbidden());
     }
 
@@ -270,6 +312,20 @@ class AccessControlRegressionTest {
         );
         insertObservation(DEMO_PATIENT_OBSERVATION_ID, DEMO_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-10"), new BigDecimal("101.0000"));
         insertObservation(UNASSIGNED_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-20"), new BigDecimal("202.0000"));
+        insertAuditEvent(
+            DEMO_PATIENT_AUDIT_EVENT_ID,
+            DEMO_PATIENT_APP_USER_ID,
+            DEMO_PATIENT_REPORT_ID,
+            "REPORT_UPLOADED",
+            "{\"contentType\":\"application/pdf\",\"fileSizeBytes\":128}"
+        );
+        insertAuditEvent(
+            UNASSIGNED_PATIENT_AUDIT_EVENT_ID,
+            UNASSIGNED_PATIENT_APP_USER_ID,
+            UNASSIGNED_PATIENT_REPORT_ID,
+            "REPORT_UPLOADED",
+            "{\"contentType\":\"application/pdf\",\"fileSizeBytes\":256}"
+        );
     }
 
     private void seedActiveClinicianAccess(Timestamp createdAt) {
@@ -408,7 +464,35 @@ class AccessControlRegressionTest {
         );
     }
 
+    private void insertAuditEvent(UUID auditEventId, UUID patientId, UUID reportId, String action, String details) {
+        jdbcTemplate.update("""
+            insert into audit_events (
+                id,
+                actor_user_id,
+                actor_role,
+                patient_user_id,
+                action,
+                resource_type,
+                resource_id,
+                details,
+                created_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            auditEventId,
+            patientId,
+            "PATIENT",
+            patientId,
+            action,
+            "REPORT",
+            reportId,
+            details,
+            Timestamp.from(Instant.parse("2026-01-01T00:00:00Z"))
+        );
+    }
+
     private void cleanTestRows() {
+        jdbcTemplate.update("delete from audit_events where patient_user_id in (?, ?)", DEMO_PATIENT_APP_USER_ID, UNASSIGNED_PATIENT_APP_USER_ID);
         jdbcTemplate.update("delete from lab_observations where id in (?, ?)", DEMO_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_OBSERVATION_ID);
         jdbcTemplate.update("delete from reports where id in (?, ?)", DEMO_PATIENT_REPORT_ID, UNASSIGNED_PATIENT_REPORT_ID);
         if (activeAccessId != null) {

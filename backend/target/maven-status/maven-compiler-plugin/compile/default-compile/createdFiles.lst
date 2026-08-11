@@ -1,3 +1,4 @@
+com/medicalreportapp/audit/AuditEventWriter.class
 com/medicalreportapp/reports/ParsedObservationService$ParsedObservationDeduplicationKey.class
 com/medicalreportapp/testcatalog/TestCatalogEntry.class
 com/medicalreportapp/users/UserContextResolver.class
@@ -10,6 +11,8 @@ com/medicalreportapp/observations/LabObservationAnalyticsController.class
 com/medicalreportapp/testcatalog/TestCatalogLookup.class
 com/medicalreportapp/observations/LabObservationTrendPointResponse.class
 com/medicalreportapp/users/PatientClinicianAccessResponse.class
+com/medicalreportapp/audit/AuditEventController.class
+com/medicalreportapp/audit/AuditEventRepository.class
 com/medicalreportapp/observations/LabObservationController.class
 com/medicalreportapp/observations/LabObservationTrendPointProjection.class
 com/medicalreportapp/reports/ParsedObservationRepository.class
@@ -25,6 +28,7 @@ com/medicalreportapp/reports/ParsedObservationService$ReferenceBounds.class
 com/medicalreportapp/observations/CreateLabObservationRequest.class
 com/medicalreportapp/testcatalog/TestCatalogResponse.class
 com/medicalreportapp/reports/ReportStatus.class
+com/medicalreportapp/audit/AuditEvent.class
 com/medicalreportapp/reports/ParsedObservationStatus.class
 com/medicalreportapp/users/PatientClinicianAccess.class
 com/medicalreportapp/reports/ParsedObservationService.class
@@ -34,8 +38,10 @@ com/medicalreportapp/users/UserAccessService.class
 com/medicalreportapp/observations/LabObservationService.class
 com/medicalreportapp/users/GrantClinicianAccessRequest.class
 com/medicalreportapp/reports/Report.class
+com/medicalreportapp/audit/AuditEventResponse.class
 com/medicalreportapp/reports/ReportResponse.class
 com/medicalreportapp/users/AssignedPatientResponse.class
+com/medicalreportapp/audit/AuditService.class
 com/medicalreportapp/MedicalReportAppBackendApplication.class
 com/medicalreportapp/observations/LabObservationRepository.class
 com/medicalreportapp/reports/CreateReportRequest.class

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.medicalreportapp.audit.AuditService;
 import com.medicalreportapp.observations.CreateLabObservationCommand;
 import com.medicalreportapp.observations.DefaultUserProvider;
 import com.medicalreportapp.observations.LabObservationResponse;
@@ -50,6 +51,9 @@ class ParsedObservationServiceTest {
     @Mock
     private DefaultUserProvider defaultUserProvider;
 
+    @Mock
+    private AuditService auditService;
+
     private ParsedObservationService parsedObservationService;
 
     @BeforeEach
@@ -60,7 +64,8 @@ class ParsedObservationServiceTest {
             new ParsedObservationParser(),
             testCatalogLookupService,
             labObservationService,
-            defaultUserProvider
+            defaultUserProvider,
+            auditService
         );
         lenient()
             .when(labObservationService.findBySourceParsedObservationIdForDefaultUser(any(UUID.class)))
@@ -626,6 +631,17 @@ class ParsedObservationServiceTest {
         assertThat(parsedObservation.getConfirmedObservationId()).isEqualTo(labObservationId);
         assertThat(parsedObservation.getConfirmedAt()).isNotNull();
         assertThat(response.id()).isEqualTo(labObservationId);
+
+        ArgumentCaptor<String> detailsCaptor = ArgumentCaptor.forClass(String.class);
+        verify(auditService).record(
+            org.mockito.ArgumentMatchers.eq("PARSED_OBSERVATION_CONFIRMED"),
+            org.mockito.ArgumentMatchers.eq(userId),
+            org.mockito.ArgumentMatchers.eq("PARSED_OBSERVATION"),
+            org.mockito.ArgumentMatchers.eq(parsedObservationId),
+            detailsCaptor.capture()
+        );
+        assertThat(detailsCaptor.getValue()).contains(reportId.toString(), labObservationId.toString());
+        assertThat(detailsCaptor.getValue()).doesNotContain("12.8", "Hemoglobin", "g/dL", "12.0 - 15.5");
     }
 
     @Test

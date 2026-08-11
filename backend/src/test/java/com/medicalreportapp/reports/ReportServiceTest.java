@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.medicalreportapp.audit.AuditService;
 import com.medicalreportapp.observations.DefaultUserProvider;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
@@ -46,6 +47,9 @@ class ReportServiceTest {
     @Mock
     private DefaultUserProvider defaultUserProvider;
 
+    @Mock
+    private AuditService auditService;
+
     @TempDir
     private Path reportUploadDirectory;
 
@@ -57,6 +61,7 @@ class ReportServiceTest {
             reportRepository,
             parsedObservationRepository,
             defaultUserProvider,
+            auditService,
             reportUploadDirectory.toString()
         );
     }
@@ -134,6 +139,17 @@ class ReportServiceTest {
         assertThat(response.storagePath()).isEqualTo(savedReport.getStoragePath());
         assertThat(response.contentType()).isEqualTo("application/pdf");
         assertThat(response.fileSizeBytes()).isEqualTo(file.getSize());
+
+        ArgumentCaptor<String> detailsCaptor = ArgumentCaptor.forClass(String.class);
+        verify(auditService).record(
+            org.mockito.ArgumentMatchers.eq("REPORT_UPLOADED"),
+            org.mockito.ArgumentMatchers.eq(userId),
+            org.mockito.ArgumentMatchers.eq("REPORT"),
+            org.mockito.ArgumentMatchers.eq(savedReport.getId()),
+            detailsCaptor.capture()
+        );
+        assertThat(detailsCaptor.getValue()).contains("application/pdf", String.valueOf(file.getSize()));
+        assertThat(detailsCaptor.getValue()).doesNotContain("%PDF-1.7 test", "lab-report-july.pdf");
     }
 
     @Test
@@ -328,6 +344,7 @@ class ReportServiceTest {
         verify(parsedObservationRepository).deleteByReportId(reportId);
         verify(reportRepository).delete(report);
         verify(reportRepository).flush();
+        verify(auditService).record("REPORT_DELETED", userId, "REPORT", reportId, null);
     }
 
     @Test

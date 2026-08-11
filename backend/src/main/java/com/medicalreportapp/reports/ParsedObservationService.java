@@ -1,5 +1,6 @@
 package com.medicalreportapp.reports;
 
+import com.medicalreportapp.audit.AuditService;
 import com.medicalreportapp.observations.DefaultUserProvider;
 import com.medicalreportapp.observations.CreateLabObservationCommand;
 import com.medicalreportapp.observations.LabObservationResponse;
@@ -37,6 +38,7 @@ class ParsedObservationService {
     private final TestCatalogLookupService testCatalogLookupService;
     private final LabObservationService labObservationService;
     private final DefaultUserProvider defaultUserProvider;
+    private final AuditService auditService;
 
     ParsedObservationService(
         ReportRepository reportRepository,
@@ -44,7 +46,8 @@ class ParsedObservationService {
         ParsedObservationParser parsedObservationParser,
         TestCatalogLookupService testCatalogLookupService,
         LabObservationService labObservationService,
-        DefaultUserProvider defaultUserProvider
+        DefaultUserProvider defaultUserProvider,
+        AuditService auditService
     ) {
         this.reportRepository = reportRepository;
         this.parsedObservationRepository = parsedObservationRepository;
@@ -52,6 +55,7 @@ class ParsedObservationService {
         this.testCatalogLookupService = testCatalogLookupService;
         this.labObservationService = labObservationService;
         this.defaultUserProvider = defaultUserProvider;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -162,6 +166,7 @@ class ParsedObservationService {
         if (existingSourceObservation.isPresent()) {
             LabObservationResponse response = existingSourceObservation.get();
             parsedObservation.markConfirmed(response.id(), Instant.now());
+            auditParsedObservationConfirmed(report, parsedObservation, response.id());
             return response;
         }
         if (parsedObservation.getMatchedTestId() == null) {
@@ -194,7 +199,18 @@ class ParsedObservationService {
         ));
 
         parsedObservation.markConfirmed(response.id(), Instant.now());
+        auditParsedObservationConfirmed(report, parsedObservation, response.id());
         return response;
+    }
+
+    private void auditParsedObservationConfirmed(Report report, ParsedObservation parsedObservation, UUID labObservationId) {
+        auditService.record(
+            "PARSED_OBSERVATION_CONFIRMED",
+            report.getPatientUserId(),
+            "PARSED_OBSERVATION",
+            parsedObservation.getId(),
+            "{\"reportId\":\"" + report.getId() + "\",\"labObservationId\":\"" + labObservationId + "\"}"
+        );
     }
 
     private Report findReportForCurrentUserForRead(UUID reportId) {

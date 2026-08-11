@@ -1,5 +1,6 @@
 package com.medicalreportapp.reports;
 
+import com.medicalreportapp.audit.AuditService;
 import com.medicalreportapp.observations.DefaultUserProvider;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,17 +30,20 @@ class ReportService {
     private final ReportRepository reportRepository;
     private final ParsedObservationRepository parsedObservationRepository;
     private final DefaultUserProvider defaultUserProvider;
+    private final AuditService auditService;
     private final Path reportUploadDirectory;
 
     ReportService(
         ReportRepository reportRepository,
         ParsedObservationRepository parsedObservationRepository,
         DefaultUserProvider defaultUserProvider,
+        AuditService auditService,
         @Value("${app.uploads.reports-directory:uploads/reports}") String reportUploadDirectory
     ) {
         this.reportRepository = reportRepository;
         this.parsedObservationRepository = parsedObservationRepository;
         this.defaultUserProvider = defaultUserProvider;
+        this.auditService = auditService;
         this.reportUploadDirectory = Path.of(reportUploadDirectory);
     }
 
@@ -102,7 +106,15 @@ class ReportService {
         );
 
         try {
-            return ReportResponse.from(reportRepository.saveAndFlush(report));
+            Report savedReport = reportRepository.saveAndFlush(report);
+            auditService.record(
+                "REPORT_UPLOADED",
+                savedReport.getPatientUserId(),
+                "REPORT",
+                savedReport.getId(),
+                "{\"contentType\":\"" + savedReport.getContentType() + "\",\"fileSizeBytes\":" + savedReport.getFileSizeBytes() + "}"
+            );
+            return ReportResponse.from(savedReport);
         } catch (RuntimeException exception) {
             deleteStoredFile(storagePath);
             throw exception;
@@ -182,6 +194,13 @@ class ReportService {
 
         reportRepository.delete(report);
         reportRepository.flush();
+        auditService.record(
+            "REPORT_DELETED",
+            report.getPatientUserId(),
+            "REPORT",
+            report.getId(),
+            null
+        );
         deleteStoredFile(report.getStoragePath());
 
         return DeleteReportResponse.deleted(report.getId());

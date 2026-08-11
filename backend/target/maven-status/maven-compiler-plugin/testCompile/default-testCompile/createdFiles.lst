@@ -1,4 +1,5 @@
 com/medicalreportapp/users/UserContextResolverTest$1.class
+com/medicalreportapp/users/PatientClinicianAccessServiceTest$RecordedAuditEvent.class
 com/medicalreportapp/users/PatientClinicianAccessServiceTest$RepositoryCallHandler.class
 com/medicalreportapp/health/HealthControllerTest.class
 com/medicalreportapp/observations/LabObservationServiceTest.class
@@ -12,6 +13,7 @@ com/medicalreportapp/testcatalog/TestCatalogServiceTest.class
 com/medicalreportapp/users/UserContextResolverTest.class
 com/medicalreportapp/users/PatientClinicianAccessServiceTest$TestPatientClinicianAccessProjection.class
 com/medicalreportapp/users/PatientClinicianAccessServiceTest$FakeAppUsers.class
+com/medicalreportapp/users/PatientClinicianAccessServiceTest$RecordingAuditService.class
 com/medicalreportapp/users/ClinicianPatientServiceTest.class
 com/medicalreportapp/users/PatientClinicianAccessServiceTest$TestUserAccessService.class
 com/medicalreportapp/users/UserContextResolverTest$2.class

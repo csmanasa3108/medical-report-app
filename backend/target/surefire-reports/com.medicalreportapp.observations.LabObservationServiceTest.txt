@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.medicalreportapp.observations.LabObservationServiceTest
 -------------------------------------------------------------------------------
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.347 s -- in com.medicalreportapp.observations.LabObservationServiceTest
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.529 s -- in com.medicalreportapp.observations.LabObservationServiceTest

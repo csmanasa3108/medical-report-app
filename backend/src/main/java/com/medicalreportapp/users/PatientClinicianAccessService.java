@@ -1,5 +1,6 @@
 package com.medicalreportapp.users;
 
+import com.medicalreportapp.audit.AuditService;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,15 +16,18 @@ class PatientClinicianAccessService {
     private final UserAccessService userAccessService;
     private final AppUserRepository appUserRepository;
     private final PatientClinicianAccessRepository patientClinicianAccessRepository;
+    private final AuditService auditService;
 
     PatientClinicianAccessService(
         UserAccessService userAccessService,
         AppUserRepository appUserRepository,
-        PatientClinicianAccessRepository patientClinicianAccessRepository
+        PatientClinicianAccessRepository patientClinicianAccessRepository,
+        AuditService auditService
     ) {
         this.userAccessService = userAccessService;
         this.appUserRepository = appUserRepository;
         this.patientClinicianAccessRepository = patientClinicianAccessRepository;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -61,6 +65,13 @@ class PatientClinicianAccessService {
         access.activate();
 
         PatientClinicianAccess savedAccess = patientClinicianAccessRepository.saveAndFlush(access);
+        auditService.record(
+            "CLINICIAN_ACCESS_GRANTED",
+            patientUserId,
+            "PATIENT_CLINICIAN_ACCESS",
+            savedAccess.getId(),
+            "{\"clinicianUserId\":\"" + clinician.getId() + "\"}"
+        );
         return PatientClinicianAccessResponse.from(savedAccess, clinician);
     }
 
@@ -77,6 +88,13 @@ class PatientClinicianAccessService {
         AppUser clinician = appUserRepository.findById(responseAccess.getClinicianUserId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Clinician not found"));
 
+        auditService.record(
+            "CLINICIAN_ACCESS_REVOKED",
+            patientUserId,
+            "PATIENT_CLINICIAN_ACCESS",
+            responseAccess.getId(),
+            "{\"clinicianUserId\":\"" + clinician.getId() + "\"}"
+        );
         return PatientClinicianAccessResponse.from(responseAccess, clinician);
     }
 

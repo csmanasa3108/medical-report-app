@@ -3,6 +3,7 @@ package com.medicalreportapp.users;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.medicalreportapp.audit.AuditService;
 import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +36,8 @@ class PatientClinicianAccessServiceTest {
         );
         appUsers.add(clinician);
         FakePatientClinicianAccessRepository accessRepository = new FakePatientClinicianAccessRepository(appUsers);
-        PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository);
+        RecordingAuditService auditService = new RecordingAuditService();
+        PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository, auditService);
 
         PatientClinicianAccessResponse response = service.grantClinicianAccess(new GrantClinicianAccessRequest(
             "clinician.demo@soverahealth.local"
@@ -47,6 +49,14 @@ class PatientClinicianAccessServiceTest {
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(accessRepository.storedAccesses()).hasSize(1);
         assertThat(accessRepository.savedAccesses()).hasSize(1);
+        assertThat(auditService.events()).singleElement()
+            .satisfies(event -> {
+                assertThat(event.action()).isEqualTo("CLINICIAN_ACCESS_GRANTED");
+                assertThat(event.patientUserId()).isEqualTo(PATIENT_ID);
+                assertThat(event.resourceType()).isEqualTo("PATIENT_CLINICIAN_ACCESS");
+                assertThat(event.resourceId()).isEqualTo(response.accessId());
+                assertThat(event.details()).contains(CLINICIAN_ID.toString());
+            });
     }
 
     @Test
@@ -137,7 +147,8 @@ class PatientClinicianAccessServiceTest {
             CLINICIAN_ID,
             PatientClinicianAccessStatus.ACTIVE
         ));
-        PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository);
+        RecordingAuditService auditService = new RecordingAuditService();
+        PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository, auditService);
 
         PatientClinicianAccessResponse response = service.revokeClinicianAccess(ACCESS_ID);
 
@@ -146,6 +157,14 @@ class PatientClinicianAccessServiceTest {
         assertThat(accessRepository.savedAccesses()).singleElement()
             .extracting(PatientClinicianAccess::getStatus)
             .isEqualTo(PatientClinicianAccessStatus.INACTIVE);
+        assertThat(auditService.events()).singleElement()
+            .satisfies(event -> {
+                assertThat(event.action()).isEqualTo("CLINICIAN_ACCESS_REVOKED");
+                assertThat(event.patientUserId()).isEqualTo(PATIENT_ID);
+                assertThat(event.resourceType()).isEqualTo("PATIENT_CLINICIAN_ACCESS");
+                assertThat(event.resourceId()).isEqualTo(ACCESS_ID);
+                assertThat(event.details()).contains(CLINICIAN_ID.toString());
+            });
     }
 
     @Test
@@ -245,7 +264,22 @@ class PatientClinicianAccessServiceTest {
         return new PatientClinicianAccessService(
             new TestUserAccessService(currentPatientId),
             appUsers.repository(),
-            accessRepository.repository()
+            accessRepository.repository(),
+            new RecordingAuditService()
+        );
+    }
+
+    private static PatientClinicianAccessService service(
+        UUID currentPatientId,
+        FakeAppUsers appUsers,
+        FakePatientClinicianAccessRepository accessRepository,
+        AuditService auditService
+    ) {
+        return new PatientClinicianAccessService(
+            new TestUserAccessService(currentPatientId),
+            appUsers.repository(),
+            accessRepository.repository(),
+            auditService
         );
     }
 
@@ -256,8 +290,32 @@ class PatientClinicianAccessServiceTest {
         return new PatientClinicianAccessService(
             new RejectingUserAccessService(),
             appUsers.repository(),
-            accessRepository.repository()
+            accessRepository.repository(),
+            new RecordingAuditService()
         );
+    }
+
+    private static final class RecordingAuditService extends AuditService {
+
+        private final List<RecordedAuditEvent> events = new ArrayList<>();
+
+        @Override
+        public void record(String action, UUID patientUserId, String resourceType, UUID resourceId, String details) {
+            events.add(new RecordedAuditEvent(action, patientUserId, resourceType, resourceId, details));
+        }
+
+        List<RecordedAuditEvent> events() {
+            return events;
+        }
+    }
+
+    private record RecordedAuditEvent(
+        String action,
+        UUID patientUserId,
+        String resourceType,
+        UUID resourceId,
+        String details
+    ) {
     }
 
     private static final class TestUserAccessService extends UserAccessService {

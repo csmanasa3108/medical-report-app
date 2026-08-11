@@ -1,4 +1,10 @@
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/MedicalReportAppBackendApplication.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditEvent.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditEventController.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditEventRepository.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditEventResponse.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditEventWriter.java
+/Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/audit/AuditService.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/config/WebCorsConfig.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/health/HealthController.java
 /Users/manasachintalapati/Documents/medical-report-app/backend/src/main/java/com/medicalreportapp/observations/CreateLabObservationCommand.java
