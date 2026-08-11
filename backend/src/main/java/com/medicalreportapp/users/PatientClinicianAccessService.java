@@ -69,12 +69,15 @@ class PatientClinicianAccessService {
         UUID patientUserId = userAccessService.requireCurrentUserCanWritePatientData();
         PatientClinicianAccess access = patientClinicianAccessRepository.findByIdAndPatientUserId(accessId, patientUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Clinician access not found"));
-        access.revoke();
-        PatientClinicianAccess savedAccess = patientClinicianAccessRepository.saveAndFlush(access);
-        AppUser clinician = appUserRepository.findById(savedAccess.getClinicianUserId())
+        PatientClinicianAccess responseAccess = access;
+        if (access.getStatus() != PatientClinicianAccessStatus.INACTIVE) {
+            access.revoke();
+            responseAccess = patientClinicianAccessRepository.saveAndFlush(access);
+        }
+        AppUser clinician = appUserRepository.findById(responseAccess.getClinicianUserId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Clinician not found"));
 
-        return PatientClinicianAccessResponse.from(savedAccess, clinician);
+        return PatientClinicianAccessResponse.from(responseAccess, clinician);
     }
 
     private String normalizedEmail(String email) {

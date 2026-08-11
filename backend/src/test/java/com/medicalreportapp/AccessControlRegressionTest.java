@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,7 +35,6 @@ class AccessControlRegressionTest {
     private static final UUID DEMO_PATIENT_LEGACY_REPORT_OWNER_USER_ID = DEMO_PATIENT_APP_USER_ID;
     private static final UUID UNASSIGNED_PATIENT_LEGACY_REPORT_OWNER_USER_ID = UNASSIGNED_PATIENT_APP_USER_ID;
     private static final UUID TEST_ID = UUID.fromString("00000000-0000-0000-0000-000000000911");
-    private static final UUID ACCESS_ID = UUID.fromString("00000000-0000-0000-0000-000000000921");
     private static final UUID DEMO_PATIENT_REPORT_ID = UUID.fromString("00000000-0000-0000-0000-000000000931");
     private static final UUID UNASSIGNED_PATIENT_REPORT_ID = UUID.fromString("00000000-0000-0000-0000-000000000932");
     private static final UUID DEMO_PATIENT_OBSERVATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000941");
@@ -48,6 +48,8 @@ class AccessControlRegressionTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    private UUID activeAccessId;
 
     @BeforeEach
     void setUp() {
@@ -109,6 +111,46 @@ class AccessControlRegressionTest {
         mockMvc.perform(get("/api/analytics/tests/{testId}/trend", TEST_ID)
                 .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID)
                 .param("patientId", UNASSIGNED_PATIENT_APP_USER_ID.toString()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void revokingClinicianAccessMarksAccessInactiveAndRemovesAssignedPatient() throws Exception {
+        mockMvc.perform(patch("/api/patient/clinician-access/{accessId}/revoke", activeAccessId)
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessId").value(activeAccessId.toString()))
+            .andExpect(jsonPath("$.status").value("INACTIVE"));
+
+        String accessStatus = jdbcTemplate.queryForObject(
+            "select status from patient_clinician_access where id = ?",
+            String.class,
+            activeAccessId
+        );
+        assertThat(accessStatus).isEqualTo("INACTIVE");
+
+        mockMvc.perform(patch("/api/patient/clinician-access/{accessId}/revoke", activeAccessId)
+                .header("X-User-Id", DEMO_PATIENT_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessId").value(activeAccessId.toString()))
+            .andExpect(jsonPath("$.status").value("INACTIVE"));
+
+        mockMvc.perform(get("/api/clinician/patients").header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].patientId", not(hasItem(DEMO_PATIENT_APP_USER_ID.toString()))));
+    }
+
+    @Test
+    void otherPatientCannotRevokeDemoPatientsClinicianAccess() throws Exception {
+        mockMvc.perform(patch("/api/patient/clinician-access/{accessId}/revoke", activeAccessId)
+                .header("X-User-Id", UNASSIGNED_PATIENT_APP_USER_ID))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void clinicianCannotRevokeThroughPatientEndpoint() throws Exception {
+        mockMvc.perform(patch("/api/patient/clinician-access/{accessId}/revoke", activeAccessId)
+                .header("X-User-Id", DEMO_CLINICIAN_APP_USER_ID))
             .andExpect(status().isForbidden());
     }
 
@@ -209,26 +251,7 @@ class AccessControlRegressionTest {
             null,
             "Regression"
         );
-        jdbcTemplate.update("""
-            insert into patient_clinician_access (id, patient_user_id, clinician_user_id, status, created_at)
-            select ?, ?, ?, ?, ?
-            where not exists (
-                select 1
-                from patient_clinician_access
-                where patient_user_id = ?
-                    and clinician_user_id = ?
-                    and status = ?
-            )
-            """,
-            ACCESS_ID,
-            DEMO_PATIENT_APP_USER_ID,
-            DEMO_CLINICIAN_APP_USER_ID,
-            "ACTIVE",
-            createdAt,
-            DEMO_PATIENT_APP_USER_ID,
-            DEMO_CLINICIAN_APP_USER_ID,
-            "ACTIVE"
-        );
+        seedActiveClinicianAccess(createdAt);
         insertReport(
             DEMO_PATIENT_REPORT_ID,
             DEMO_PATIENT_LEGACY_REPORT_OWNER_USER_ID,
@@ -247,6 +270,57 @@ class AccessControlRegressionTest {
         );
         insertObservation(DEMO_PATIENT_OBSERVATION_ID, DEMO_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-10"), new BigDecimal("101.0000"));
         insertObservation(UNASSIGNED_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_APP_USER_ID, LocalDate.parse("2026-01-20"), new BigDecimal("202.0000"));
+    }
+
+    private void seedActiveClinicianAccess(Timestamp createdAt) {
+        activeAccessId = jdbcTemplate.query("""
+            select id
+            from patient_clinician_access
+            where patient_user_id = ?
+                and clinician_user_id = ?
+            order by created_at asc, id asc
+            limit 1
+            """,
+            (resultSet, rowNumber) -> resultSet.getObject("id", UUID.class),
+            DEMO_PATIENT_APP_USER_ID,
+            DEMO_CLINICIAN_APP_USER_ID
+        ).stream().findFirst().orElseGet(UUID::randomUUID);
+
+        jdbcTemplate.update("""
+            update patient_clinician_access
+            set status = ?
+            where patient_user_id = ?
+                and clinician_user_id = ?
+                and id <> ?
+            """,
+            "INACTIVE",
+            DEMO_PATIENT_APP_USER_ID,
+            DEMO_CLINICIAN_APP_USER_ID,
+            activeAccessId
+        );
+
+        int updatedRows = jdbcTemplate.update("""
+            update patient_clinician_access
+            set status = ?
+            where id = ?
+            """,
+            "ACTIVE",
+            activeAccessId
+        );
+        if (updatedRows > 0) {
+            return;
+        }
+
+        jdbcTemplate.update("""
+            insert into patient_clinician_access (id, patient_user_id, clinician_user_id, status, created_at)
+            values (?, ?, ?, ?, ?)
+            """,
+            activeAccessId,
+            DEMO_PATIENT_APP_USER_ID,
+            DEMO_CLINICIAN_APP_USER_ID,
+            "ACTIVE",
+            createdAt
+        );
     }
 
     private void seedLegacyUser(UUID userId, String email, String displayName, Timestamp createdAt) {
@@ -337,7 +411,9 @@ class AccessControlRegressionTest {
     private void cleanTestRows() {
         jdbcTemplate.update("delete from lab_observations where id in (?, ?)", DEMO_PATIENT_OBSERVATION_ID, UNASSIGNED_PATIENT_OBSERVATION_ID);
         jdbcTemplate.update("delete from reports where id in (?, ?)", DEMO_PATIENT_REPORT_ID, UNASSIGNED_PATIENT_REPORT_ID);
-        jdbcTemplate.update("delete from patient_clinician_access where id = ?", ACCESS_ID);
+        if (activeAccessId != null) {
+            jdbcTemplate.update("update patient_clinician_access set status = ? where id = ?", "ACTIVE", activeAccessId);
+        }
         jdbcTemplate.update("delete from test_catalog where id = ?", TEST_ID);
         jdbcTemplate.update("delete from app_users where id = ?", UNASSIGNED_PATIENT_APP_USER_ID);
         jdbcTemplate.update("delete from users where id = ?", UNASSIGNED_PATIENT_LEGACY_REPORT_OWNER_USER_ID);

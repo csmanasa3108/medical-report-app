@@ -12,8 +12,13 @@ function formatStatus(status: string | null | undefined) {
 
 function getStatusTone(status: string | null | undefined) {
   switch (status) {
+    case "ACTIVE":
+      return "status-badge-confirmed";
     case "CONFIRMED":
       return "status-badge-confirmed";
+    case "INACTIVE":
+    case "REVOKED":
+      return "status-badge-revoked";
     case "NEEDS_REVIEW":
       return "status-badge-review";
     case "TEXT_EXTRACTED":

@@ -176,6 +176,19 @@ export type AssignedPatientResponse = {
   latestReportDate?: string | null;
 };
 
+export type PatientClinicianAccessResponse = {
+  accessId: string;
+  clinicianUserId: string;
+  clinicianDisplayName: string;
+  clinicianEmail: string;
+  status: "ACTIVE" | "REVOKED" | "INACTIVE" | string;
+  createdAt: string;
+};
+
+export type GrantClinicianAccessRequest = {
+  clinicianEmail: string;
+};
+
 export type ParsedObservationResponse = {
   id?: string;
   rawTestName: string | null;
@@ -321,6 +334,31 @@ export function createObservation(payload: CreateLabObservationRequest) {
 
 export function getAssignedPatients() {
   return apiRequest<AssignedPatientResponse[]>("/api/clinician/patients");
+}
+
+export function getPatientClinicianAccess() {
+  return apiRequest<PatientClinicianAccessResponse[]>(
+    "/api/patient/clinician-access"
+  );
+}
+
+export function grantClinicianAccess(payload: GrantClinicianAccessRequest) {
+  return apiRequest<PatientClinicianAccessResponse>(
+    "/api/patient/clinician-access",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }
+  );
+}
+
+export function revokeClinicianAccess(accessId: string) {
+  return apiRequest<PatientClinicianAccessResponse>(
+    `/api/patient/clinician-access/${encodeURIComponent(accessId)}/revoke`,
+    {
+      method: "PATCH"
+    }
+  );
 }
 
 export function getLabTrend(testId: string, patientId?: string | null) {

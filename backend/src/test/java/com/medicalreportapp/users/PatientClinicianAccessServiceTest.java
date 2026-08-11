@@ -64,7 +64,7 @@ class PatientClinicianAccessServiceTest {
             ACCESS_ID,
             PATIENT_ID,
             CLINICIAN_ID,
-            PatientClinicianAccessStatus.REVOKED
+            PatientClinicianAccessStatus.INACTIVE
         ));
         PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository);
 
@@ -142,10 +142,36 @@ class PatientClinicianAccessServiceTest {
         PatientClinicianAccessResponse response = service.revokeClinicianAccess(ACCESS_ID);
 
         assertThat(response.accessId()).isEqualTo(ACCESS_ID);
-        assertThat(response.status()).isEqualTo("REVOKED");
+        assertThat(response.status()).isEqualTo("INACTIVE");
         assertThat(accessRepository.savedAccesses()).singleElement()
             .extracting(PatientClinicianAccess::getStatus)
-            .isEqualTo(PatientClinicianAccessStatus.REVOKED);
+            .isEqualTo(PatientClinicianAccessStatus.INACTIVE);
+    }
+
+    @Test
+    void patientCanRevokeAlreadyInactiveClinicianAccess() {
+        FakeAppUsers appUsers = new FakeAppUsers();
+        AppUser clinician = new AppUser(
+            CLINICIAN_ID,
+            "clinician.demo@soverahealth.local",
+            "Demo Clinician",
+            AppUserRole.CLINICIAN
+        );
+        appUsers.add(clinician);
+        FakePatientClinicianAccessRepository accessRepository = new FakePatientClinicianAccessRepository(appUsers);
+        accessRepository.add(new PatientClinicianAccess(
+            ACCESS_ID,
+            PATIENT_ID,
+            CLINICIAN_ID,
+            PatientClinicianAccessStatus.INACTIVE
+        ));
+        PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository);
+
+        PatientClinicianAccessResponse response = service.revokeClinicianAccess(ACCESS_ID);
+
+        assertThat(response.accessId()).isEqualTo(ACCESS_ID);
+        assertThat(response.status()).isEqualTo("INACTIVE");
+        assertThat(accessRepository.savedAccesses()).isEmpty();
     }
 
     @Test
@@ -200,7 +226,7 @@ class PatientClinicianAccessServiceTest {
             UUID.fromString("00000000-0000-0000-0000-000000000922"),
             PATIENT_ID,
             revokedClinicianId,
-            PatientClinicianAccessStatus.REVOKED
+            PatientClinicianAccessStatus.INACTIVE
         ));
         PatientClinicianAccessService service = service(PATIENT_ID, appUsers, accessRepository);
 
@@ -208,7 +234,7 @@ class PatientClinicianAccessServiceTest {
 
         assertThat(responses)
             .extracting(PatientClinicianAccessResponse::status)
-            .containsExactly("ACTIVE", "REVOKED");
+            .containsExactly("ACTIVE", "INACTIVE");
     }
 
     private static PatientClinicianAccessService service(

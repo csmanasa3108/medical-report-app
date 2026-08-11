@@ -7,6 +7,7 @@ import {
 } from "./api/client";
 import type { DevUser, DevUserKey } from "./api/client";
 import AddObservationPage from "./pages/AddObservationPage";
+import CareTeamPage from "./pages/CareTeamPage";
 import DashboardPage from "./pages/DashboardPage";
 import NewReportPage from "./pages/NewReportPage";
 import PatientsPage from "./pages/PatientsPage";
@@ -61,6 +62,7 @@ function App() {
               <>
                 <NavLink to="/reports/new">Upload Report</NavLink>
                 <NavLink to="/observations/new">Add Observation</NavLink>
+                <NavLink to="/care-team">Care Team</NavLink>
               </>
             ) : null}
             <NavLink to="/trends">Trends</NavLink>
@@ -114,6 +116,10 @@ function App() {
                 <UnavailableForRolePage devUser={selectedDevUser} />
               )
             }
+          />
+          <Route
+            path="/care-team"
+            element={<CareTeamPage devUser={selectedDevUser} />}
           />
           <Route path="/trends" element={<TrendsPage devUser={selectedDevUser} />} />
           <Route

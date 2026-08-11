@@ -501,6 +501,52 @@ h2 {
   font-weight: 800;
 }
 
+.care-team-page {
+  display: grid;
+  gap: var(--space-9);
+}
+
+.care-team-layout {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.care-team-form-card {
+  max-width: 640px;
+}
+
+.care-team-form-card h3,
+.care-team-list-header h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+.care-team-form {
+  margin-top: var(--space-5);
+}
+
+.care-team-form label {
+  grid-column: 1 / -1;
+}
+
+.care-team-list-section {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.care-team-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.care-team-table {
+  min-width: 820px;
+}
+
 .dashboard-action-card-primary .dashboard-action-accent {
   background: var(--color-primary-deep);
 }
@@ -1317,6 +1363,12 @@ h2 {
   border-color: var(--color-success-border);
   color: var(--color-success);
   background: var(--color-success-tint);
+}
+
+.status-badge-revoked {
+  border-color: var(--color-neutral-badge-border);
+  color: var(--color-text-muted);
+  background: var(--color-disabled-tint);
 }
 
 .source-badge-report {

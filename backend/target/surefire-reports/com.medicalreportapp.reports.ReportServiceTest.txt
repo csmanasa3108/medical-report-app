@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.medicalreportapp.reports.ReportServiceTest
 -------------------------------------------------------------------------------
-Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.734 s -- in com.medicalreportapp.reports.ReportServiceTest
+Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.903 s -- in com.medicalreportapp.reports.ReportServiceTest

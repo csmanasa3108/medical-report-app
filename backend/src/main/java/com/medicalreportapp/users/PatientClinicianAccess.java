@@ -72,6 +72,6 @@ public class PatientClinicianAccess {
     }
 
     void revoke() {
-        this.status = PatientClinicianAccessStatus.REVOKED;
+        this.status = PatientClinicianAccessStatus.INACTIVE;
     }
 }
