@@ -7,6 +7,7 @@ import {
 } from "./api/client";
 import type { DevUser, DevUserKey } from "./api/client";
 import AddObservationPage from "./pages/AddObservationPage";
+import ActivityPage from "./pages/ActivityPage";
 import CareTeamPage from "./pages/CareTeamPage";
 import DashboardPage from "./pages/DashboardPage";
 import NewReportPage from "./pages/NewReportPage";
@@ -66,6 +67,7 @@ function App() {
               </>
             ) : null}
             <NavLink to="/trends">Trends</NavLink>
+            <NavLink to="/activity">Activity</NavLink>
           </nav>
           <div className="dev-user-switcher" aria-label="Development user">
             <span className="dev-user-kicker">DEV</span>
@@ -122,6 +124,10 @@ function App() {
             element={<CareTeamPage devUser={selectedDevUser} />}
           />
           <Route path="/trends" element={<TrendsPage devUser={selectedDevUser} />} />
+          <Route
+            path="/activity"
+            element={<ActivityPage devUser={selectedDevUser} />}
+          />
           <Route
             path="/tests/:testId/trend"
             element={<TrendPage devUser={selectedDevUser} />}

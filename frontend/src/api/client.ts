@@ -189,6 +189,18 @@ export type GrantClinicianAccessRequest = {
   clinicianEmail: string;
 };
 
+export type AuditEventResponse = {
+  id: string;
+  actorUserId: string | null;
+  actorRole: string | null;
+  patientUserId: string | null;
+  action: string;
+  resourceType: string | null;
+  resourceId: string | null;
+  details: string | null;
+  createdAt: string;
+};
+
 export type ParsedObservationResponse = {
   id?: string;
   rawTestName: string | null;
@@ -358,6 +370,12 @@ export function revokeClinicianAccess(accessId: string) {
     {
       method: "PATCH"
     }
+  );
+}
+
+export function getAuditEvents(patientId?: string | null) {
+  return apiRequest<AuditEventResponse[]>(
+    withPatientScope("/api/audit-events", patientId)
   );
 }
 
