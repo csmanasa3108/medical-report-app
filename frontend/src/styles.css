@@ -1733,10 +1733,118 @@ h2 {
   white-space: nowrap;
 }
 
-.parsed-observations-section {
-  margin-top: var(--space-10);
-  padding-top: var(--space-9);
-  border-top: 1px solid var(--color-border);
+.report-detail-page {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.report-detail-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-7);
+  padding: var(--space-10);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(90deg, var(--color-primary-tint), transparent 58%),
+    var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.report-detail-title-block {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.report-detail-title-block .page-title {
+  max-width: 760px;
+}
+
+.report-detail-summary-card,
+.report-status-panel,
+.parsed-observations-section,
+.report-danger-zone {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-9);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.report-detail-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.report-detail-section-header h3,
+.report-danger-zone h3,
+.report-detail-empty-state h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+.report-detail-metadata {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.report-detail-metadata div,
+.report-status-grid article {
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+}
+
+.report-detail-metadata-wide {
+  grid-column: span 2;
+}
+
+.report-detail-metadata dt,
+.report-status-grid span,
+.parsed-observation-detail-grid dt,
+.parsed-observation-edit-grid label span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.report-detail-metadata dd,
+.parsed-observation-detail-grid dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-primary);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.report-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.report-status-grid article {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.report-status-grid strong {
+  color: var(--color-primary-deep);
+  font-size: var(--font-size-xl);
+  line-height: 1;
 }
 
 .parsed-observations-header {
@@ -1744,7 +1852,7 @@ h2 {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-7);
-  margin-bottom: var(--space-5);
+  min-width: 0;
 }
 
 .parsed-observations-header h3 {
@@ -1771,6 +1879,124 @@ h2 {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.82rem;
+}
+
+.parsed-observation-card-list {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.parsed-observation-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: var(--space-6);
+  padding: var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.parsed-observation-card.no-actions {
+  grid-template-columns: 1fr;
+}
+
+.parsed-observation-card.confirmed {
+  border-color: var(--color-success-border);
+  background: var(--color-success-tint);
+}
+
+.parsed-observation-card-main {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.parsed-observation-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.parsed-observation-card-header h4 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.parsed-observation-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.parsed-observation-detail-grid div {
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+}
+
+.parsed-observation-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.parsed-observation-edit-grid label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.parsed-observation-edit-wide {
+  grid-column: span 3;
+}
+
+.parsed-observation-card-actions {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.parsed-observation-card-actions .action-button {
+  width: 100%;
+}
+
+.report-detail-empty-state,
+.report-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+
+.report-detail-empty-state {
+  min-height: 180px;
+  padding: var(--space-9);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, var(--color-accent-tint), transparent 62%),
+    var(--color-white);
+}
+
+.report-detail-empty-state p:not(.eyebrow),
+.report-danger-zone p:not(.eyebrow) {
+  max-width: 640px;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+}
+
+.report-danger-zone {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-tint);
+  box-shadow: none;
 }
 
 .parsed-observations-table {
@@ -2067,6 +2293,30 @@ h2 {
   .review-card-action-button {
     width: auto;
   }
+
+  .report-detail-metadata,
+  .report-status-grid,
+  .parsed-observation-detail-grid,
+  .parsed-observation-edit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .parsed-observation-edit-wide {
+    grid-column: span 2;
+  }
+
+  .parsed-observation-card {
+    grid-template-columns: 1fr;
+  }
+
+  .parsed-observation-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .parsed-observation-card-actions .action-button {
+    width: auto;
+  }
 }
 
 @media (max-width: 700px) {
@@ -2133,8 +2383,14 @@ h2 {
   .reports-library-header,
   .reports-list-header,
   .reports-empty-state,
+  .report-detail-hero,
+  .report-detail-section-header,
+  .report-detail-empty-state,
+  .report-danger-zone,
   .review-queue-header,
   .review-item-title-row,
+  .parsed-observations-header,
+  .parsed-observation-card-header,
   .review-empty-state {
     align-items: flex-start;
     flex-direction: column;
@@ -2158,8 +2414,17 @@ h2 {
   }
 
   .review-item-details,
-  .review-source-panel {
+  .review-source-panel,
+  .report-detail-metadata,
+  .report-status-grid,
+  .parsed-observation-detail-grid,
+  .parsed-observation-edit-grid {
     grid-template-columns: 1fr;
+  }
+
+  .report-detail-metadata-wide,
+  .parsed-observation-edit-wide {
+    grid-column: auto;
   }
 
   .review-item-side {
@@ -2168,7 +2433,9 @@ h2 {
   }
 
   .review-card-actions,
-  .review-card-action-button {
+  .review-card-action-button,
+  .parsed-observation-card-actions,
+  .parsed-observation-card-actions .action-button {
     width: 100%;
   }
 

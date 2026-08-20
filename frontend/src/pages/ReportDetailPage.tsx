@@ -7,6 +7,7 @@ import {
   getParsedObservations,
   getReport,
   getTests,
+  parseReportObservations,
   ParsedObservationResponse,
   rejectParsedObservation,
   ReportResponse,
@@ -75,6 +76,45 @@ function formatOptionalValue(value: string | number | null | undefined) {
   }
 
   return value;
+}
+
+function getReportTitle(filename: string) {
+  return filename.replace(/\.[^/.]+$/, "");
+}
+
+function getParsedObservationCounts(
+  parsedObservations: ParsedObservationResponse[]
+) {
+  return parsedObservations.reduce(
+    (counts, observation) => {
+      if (observation.status === "NEEDS_REVIEW") {
+        counts.needsReview += 1;
+      }
+
+      if (observation.status === "CONFIRMED") {
+        counts.confirmed += 1;
+      }
+
+      if (observation.status === "REJECTED") {
+        counts.rejected += 1;
+      }
+
+      return counts;
+    },
+    { confirmed: 0, needsReview: 0, rejected: 0 }
+  );
+}
+
+function formatParsedValue(observation: ParsedObservationResponse) {
+  if (observation.numericValue === null || observation.numericValue === undefined) {
+    return formatOptionalValue(observation.numericValue);
+  }
+
+  const formattedValue = observation.numericValue.toLocaleString(undefined, {
+    maximumFractionDigits: 4
+  });
+
+  return observation.unit ? `${formattedValue} ${observation.unit}` : formattedValue;
 }
 
 function canConfirmParsedObservation(observation: ParsedObservationResponse) {
@@ -335,12 +375,17 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   }
 
   async function handleRefreshParsedObservations() {
+    if (!reportId) {
+      return;
+    }
+
     setActiveAction("refresh");
     setIsParsedLoading(true);
     setParsedErrorMessage("");
     setActionMessage("");
 
     try {
+      await parseReportObservations(reportId);
       await refreshReportAndParsedObservations();
       setActionMessage("Parsed observations refreshed.");
     } catch (error: unknown) {
@@ -433,35 +478,43 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     rejectingObservationId !== null ||
     savingObservationId !== null ||
     isDeletingReport;
+  const parsedCounts = getParsedObservationCounts(parsedObservations);
+  const reportTitle = report
+    ? getReportTitle(report.originalFilename)
+    : "Report";
 
   return (
-    <section className="page-section">
-      <div className="section-header">
-        <div>
-          <p className="eyebrow">Reports</p>
-          <h2 className="page-title">
-            {isClinician ? "Patient report detail" : "Report Detail"}
+    <section className="report-detail-page">
+      <div className="report-detail-hero">
+        <div className="report-detail-title-block">
+          <p className="eyebrow">Source document</p>
+          <h2
+            className="page-title text-truncate"
+            title={report?.originalFilename}
+          >
+            {isLoading ? "Loading report..." : reportTitle}
           </h2>
           <p className="page-description">
-            {isClinician
-              ? "Review report metadata and extracted diagnostic observations."
-              : "Review report metadata and confirm extracted diagnostic observations."}
+            {report
+              ? `${report.labName || "Lab not provided"} - ${formatDate(
+                  report.reportDate
+                )}`
+              : "Review report metadata and extracted observations."}
           </p>
         </div>
         <div className="report-detail-actions">
           <Link className="button-link secondary" to="/reports">
-            All Reports
+            Back to Reports
           </Link>
-          {!isClinician && !isLoading && !errorMessage && report ? (
-            <button
-              className="action-button secondary danger"
-              type="button"
-              onClick={handleDeleteReport}
-              disabled={isActionRunning}
-            >
-              {isDeletingReport ? "Deleting..." : "Delete"}
-            </button>
-          ) : null}
+          <Link className="button-link secondary" to="/review">
+            Open Review Queue
+          </Link>
+          <Link className="button-link secondary" to="/trends">
+            View Trends
+          </Link>
+          <Link className="button-link secondary" to="/activity">
+            View Activity
+          </Link>
         </div>
       </div>
 
@@ -480,112 +533,150 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
       ) : null}
 
       {!isLoading && !errorMessage && report ? (
-        <dl className="detail-list">
-          <div>
-            <dt>Original filename</dt>
-            <dd className="detail-filename">{report.originalFilename}</dd>
-          </div>
-          <div>
-            <dt>Report date</dt>
-            <dd>{formatDate(report.reportDate)}</dd>
-          </div>
-          <div>
-            <dt>Lab name</dt>
-            <dd>{report.labName || "Not provided"}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>
+        <>
+          <section className="report-detail-summary-card">
+            <div className="report-detail-section-header">
+              <div>
+                <p className="eyebrow">Report summary</p>
+                <h3>Document details</h3>
+              </div>
               <StatusBadge status={report.status} />
-            </dd>
-          </div>
-          <div>
-            <dt>Created</dt>
-            <dd>{formatDateTime(report.createdAt)}</dd>
-          </div>
-        </dl>
-      ) : null}
+            </div>
+            <dl className="report-detail-metadata">
+              <div className="report-detail-metadata-wide">
+                <dt>Original filename</dt>
+                <dd className="text-truncate" title={report.originalFilename}>
+                  {report.originalFilename}
+                </dd>
+              </div>
+              <div>
+                <dt>Lab name</dt>
+                <dd>{report.labName || "Not provided"}</dd>
+              </div>
+              <div>
+                <dt>Report date</dt>
+                <dd>{formatDate(report.reportDate)}</dd>
+              </div>
+              <div>
+                <dt>Uploaded</dt>
+                <dd>{formatDateTime(report.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>Processing status</dt>
+                <dd>
+                  <StatusBadge status={report.status} />
+                </dd>
+              </div>
+            </dl>
+          </section>
 
-      {!isLoading && !errorMessage && report ? (
-        <section className="parsed-observations-section">
-          {uploadSuccessMessage ? (
-            <p className="status-message success-message" role="status">
-              {uploadSuccessMessage}
-            </p>
-          ) : null}
+          <section className="report-status-panel">
+            <div className="report-detail-section-header">
+              <div>
+                <p className="eyebrow">Processing</p>
+                <h3>Status overview</h3>
+              </div>
+            </div>
+            <div className="report-status-grid">
+              <article>
+                <span>Report status</span>
+                <StatusBadge status={report.status} />
+              </article>
+              <article>
+                <span>Results parsed</span>
+                <strong>{parsedObservations.length.toLocaleString()}</strong>
+              </article>
+              <article>
+                <span>Needs review</span>
+                <strong>{parsedCounts.needsReview.toLocaleString()}</strong>
+              </article>
+              <article>
+                <span>Confirmed results</span>
+                <strong>{parsedCounts.confirmed.toLocaleString()}</strong>
+              </article>
+            </div>
+          </section>
 
-          <div className="parsed-observations-header">
-            <div>
-              <h3>Parsed Observations</h3>
-              <p className="parse-observations-helper">
-                {isClinician
-                  ? "Review extracted observations for the selected assigned patient."
-                  : "Review extracted observations before confirming them into trends."}
+          <section className="parsed-observations-section">
+            {uploadSuccessMessage ? (
+              <p className="status-message success-message" role="status">
+                {uploadSuccessMessage}
               </p>
+            ) : null}
+
+            <div className="parsed-observations-header">
+              <div>
+                <p className="eyebrow">Extracted results</p>
+                <h3>Parsed observations</h3>
+                <p className="parse-observations-helper">
+                  {isClinician
+                    ? "View extracted observations for the selected assigned patient."
+                    : "Review extracted observations before confirming them into trends."}
+                </p>
+              </div>
+              <div className="parsed-observations-actions">
+                {!isClinician ? (
+                  <button
+                    className="action-button secondary"
+                    type="button"
+                    onClick={handleRefreshParsedObservations}
+                    disabled={isActionRunning}
+                  >
+                    {activeAction === "refresh"
+                      ? "Refreshing..."
+                      : "Refresh extracted results"}
+                  </button>
+                ) : (
+                  <span className="review-readonly-badge">View only</span>
+                )}
+              </div>
             </div>
-            <div className="parsed-observations-actions">
-              <button
-                className="action-button secondary"
-                type="button"
-                onClick={handleRefreshParsedObservations}
-                disabled={isActionRunning}
-              >
-                {activeAction === "refresh"
-                  ? "Refreshing..."
-                  : "Refresh parsed observations"}
-              </button>
-            </div>
-          </div>
 
-          {actionMessage ? (
-            <p className="status-message success-message" role="status">
-              {actionMessage}
-            </p>
-          ) : null}
+            {actionMessage ? (
+              <p className="status-message success-message" role="status">
+                {actionMessage}
+              </p>
+            ) : null}
 
-          {parsedErrorMessage ? (
-            <p className="status-message error-message" role="alert">
-              {parsedErrorMessage}
-            </p>
-          ) : null}
+            {parsedErrorMessage ? (
+              <p className="status-message error-message" role="alert">
+                {parsedErrorMessage}
+              </p>
+            ) : null}
 
-          {isParsedLoading ? (
-            <p className="status-message">Loading parsed observations...</p>
-          ) : null}
+            {isParsedLoading ? (
+              <p className="status-message">Loading parsed observations...</p>
+            ) : null}
 
-          {!isParsedLoading && parsedObservations.length === 0 ? (
-            <p className="status-message">
-              No observations were detected in this report.
-            </p>
-          ) : null}
+            {!isParsedLoading && parsedObservations.length === 0 ? (
+              <section className="report-detail-empty-state">
+                <div>
+                  <p className="eyebrow">Parsed observations</p>
+                  <h3>No extracted results yet.</h3>
+                  <p>
+                    {isClinician
+                      ? "This report does not have extracted results available yet."
+                      : "Refresh extracted results to parse observations from this source report."}
+                  </p>
+                </div>
+                {!isClinician ? (
+                  <button
+                    className="action-button"
+                    type="button"
+                    onClick={handleRefreshParsedObservations}
+                    disabled={isActionRunning}
+                  >
+                    {activeAction === "refresh"
+                      ? "Refreshing..."
+                      : "Refresh extracted results"}
+                  </button>
+                ) : null}
+              </section>
+            ) : null}
 
-          {!isParsedLoading && parsedObservations.length > 0 ? (
-            <div className="table-scroll">
-              <table className="reports-table parsed-observations-table">
-                <colgroup>
-                  <col className="raw-test-column" />
-                  <col className="matched-test-column" />
-                  <col className="observed-at-column" />
-                  <col className="raw-value-column" />
-                  <col className="numeric-value-column" />
-                  <col className="unit-column" />
-                  <col className="status-column" />
-                  <col className="actions-column" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Raw test</th>
-                    <th>Matched test</th>
-                    <th className="nowrap-cell">Observed</th>
-                    <th>Raw value</th>
-                    <th>Numeric value</th>
-                    <th>Unit</th>
-                    <th>Status</th>
-                    <th className="actions-column">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedObservations.map((observation, index) => {
+            {!isParsedLoading && parsedObservations.length > 0 ? (
+              <div className="parsed-observation-card-list">
+                {parsedObservations.map((observation, index) => {
                     const rowKey =
                       observation.id ?? `${observation.rawTestName}-${index}`;
                     const matchedTest = findMatchedTest(
@@ -603,229 +694,321 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                     const isEditing = observation.id === editingObservationId;
                     const canEdit =
                       !isClinician && Boolean(observation.id) && isReviewable;
-                    const canReject = !isClinician && Boolean(observation.id) && isReviewable;
+                    const canReject =
+                      !isClinician && Boolean(observation.id) && isReviewable;
                     const isSaving = observation.id === savingObservationId;
                     const selectedMatchedTestExists =
                       editForm.matchedTestId === "" ||
                       tests.some((test) => test.id === editForm.matchedTestId);
+                    const hasActionPanel =
+                      Boolean(isEditing && observation.id) ||
+                      isClinician ||
+                      canEdit ||
+                      Boolean(!isClinician && isConfirmable && observation.id) ||
+                      Boolean(canReject && observation.id);
 
                     return (
-                      <tr
+                      <article
                         className={
                           isConfirmed
-                            ? "confirmed-observation-row"
-                            : undefined
+                            ? `parsed-observation-card confirmed${
+                                hasActionPanel ? "" : " no-actions"
+                              }`
+                            : `parsed-observation-card${
+                                hasActionPanel ? "" : " no-actions"
+                              }`
                         }
                         key={rowKey}
                       >
-                        <td>
-                          <span className="raw-test-cell">
-                            {isEditing ? (
-                              <input
-                                className="table-input"
-                                type="text"
-                                value={editForm.rawTestName}
-                                onChange={(event) =>
-                                  updateEditField(
-                                    "rawTestName",
-                                    event.target.value
-                                  )
-                                }
-                              />
-                            ) : (
-                              formatOptionalValue(observation.rawTestName)
-                            )}
-                          </span>
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <select
-                              className="table-input"
-                              value={editForm.matchedTestId}
-                              onChange={(event) =>
-                                updateEditField(
-                                  "matchedTestId",
-                                  event.target.value
-                                )
-                              }
-                              disabled={isTestsLoading}
-                            >
-                              <option value="">No matched test</option>
-                              {!selectedMatchedTestExists ? (
-                                <option value={editForm.matchedTestId}>
-                                  Current: {editForm.matchedTestId}
-                                </option>
-                              ) : null}
-                              {tests.map((test) => (
-                                <option key={test.id} value={test.id}>
-                                  {test.displayName}
-                                </option>
-                              ))}
-                            </select>
-                          ) : observation.matchedTestId ? (
-                            <span
-                              className="matched-test-cell"
-                              title={observation.matchedTestId}
-                            >
-                              <span className="matched-test-name">
+                        <div className="parsed-observation-card-main">
+                          <div className="parsed-observation-card-header">
+                            <div>
+                              <p className="eyebrow">Observation</p>
+                              <h4>
                                 {matchedTest?.displayName ??
-                                  "Catalog match unavailable"}
-                              </span>
-                              <span className="muted-id">
-                                ID {formatShortId(observation.matchedTestId)}
-                              </span>
-                            </span>
-                          ) : (
-                            "Not provided"
-                          )}
-                        </td>
-                        <td className="nowrap-cell">
-                          {isEditing ? (
-                            <input
-                              className="table-input date-input"
-                              type="date"
-                              value={editForm.observedAt}
-                              onChange={(event) =>
-                                updateEditField("observedAt", event.target.value)
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.observedAt)
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className="table-input"
-                              type="text"
-                              value={editForm.rawValue}
-                              onChange={(event) =>
-                                updateEditField("rawValue", event.target.value)
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.rawValue)
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className="table-input"
-                              type="number"
-                              step="any"
-                              value={editForm.numericValue}
-                              onChange={(event) =>
-                                updateEditField(
-                                  "numericValue",
-                                  event.target.value
-                                )
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.numericValue)
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className="table-input"
-                              type="text"
-                              value={editForm.unit}
-                              onChange={(event) =>
-                                updateEditField("unit", event.target.value)
-                              }
-                            />
-                          ) : (
-                            formatOptionalValue(observation.unit)
-                          )}
-                        </td>
-                        <td>
-                          <StatusBadge status={observation.status} />
-                        </td>
-                        <td className="actions-column">
+                                  formatOptionalValue(observation.rawTestName)}
+                              </h4>
+                            </div>
+                            <StatusBadge status={observation.status} />
+                          </div>
+
                           {isEditing && observation.id ? (
-                            <div className="table-action-group">
-                              <button
-                                className="action-button table-action-button"
-                                type="button"
-                                onClick={() =>
-                                  handleSaveParsedObservation(observation.id!)
-                                }
-                                disabled={isActionRunning}
-                              >
-                                {isSaving ? "Saving..." : "Save"}
-                              </button>
-                              <button
-                                className="action-button secondary table-action-button"
-                                type="button"
-                                onClick={handleCancelEdit}
-                                disabled={isActionRunning}
-                              >
-                                Cancel
-                              </button>
+                            <div className="parsed-observation-edit-grid">
+                              <label>
+                                <span>Raw test name</span>
+                                <input
+                                  className="table-input"
+                                  type="text"
+                                  value={editForm.rawTestName}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "rawTestName",
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </label>
+                              <label>
+                                <span>Matched test</span>
+                                <select
+                                  className="table-input"
+                                  value={editForm.matchedTestId}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "matchedTestId",
+                                      event.target.value
+                                    )
+                                  }
+                                  disabled={isTestsLoading}
+                                >
+                                  <option value="">No matched test</option>
+                                  {!selectedMatchedTestExists ? (
+                                    <option value={editForm.matchedTestId}>
+                                      Current: {editForm.matchedTestId}
+                                    </option>
+                                  ) : null}
+                                  {tests.map((test) => (
+                                    <option key={test.id} value={test.id}>
+                                      {test.displayName}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label>
+                                <span>Observed date</span>
+                                <input
+                                  className="table-input"
+                                  type="date"
+                                  value={editForm.observedAt}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "observedAt",
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </label>
+                              <label>
+                                <span>Raw value</span>
+                                <input
+                                  className="table-input"
+                                  type="text"
+                                  value={editForm.rawValue}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "rawValue",
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </label>
+                              <label>
+                                <span>Numeric value</span>
+                                <input
+                                  className="table-input"
+                                  type="number"
+                                  step="any"
+                                  value={editForm.numericValue}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "numericValue",
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </label>
+                              <label>
+                                <span>Unit</span>
+                                <input
+                                  className="table-input"
+                                  type="text"
+                                  value={editForm.unit}
+                                  onChange={(event) =>
+                                    updateEditField("unit", event.target.value)
+                                  }
+                                />
+                              </label>
+                              <label className="parsed-observation-edit-wide">
+                                <span>Reference range</span>
+                                <input
+                                  className="table-input"
+                                  type="text"
+                                  value={editForm.referenceRange}
+                                  onChange={(event) =>
+                                    updateEditField(
+                                      "referenceRange",
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </label>
                             </div>
                           ) : (
-                            <div className="table-action-group">
-                              {canEdit ? (
-                                <button
-                                  className="action-button secondary table-action-button"
-                                  type="button"
-                                  onClick={() =>
-                                    handleEditParsedObservation(observation)
-                                  }
-                                  disabled={
-                                    isActionRunning ||
-                                    editingObservationId !== null
-                                  }
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
-                              {isClinician ? (
-                                <span className="dashboard-summary-detail">
-                                  View only
-                                </span>
-                              ) : null}
-                              {!isClinician && isConfirmable && observation.id ? (
-                                <button
-                                  className="action-button table-action-button"
-                                  type="button"
-                                  onClick={() =>
-                                    handleConfirmParsedObservation(observation.id!)
-                                  }
-                                  disabled={isActionRunning}
-                                >
-                                  {isConfirming ? "Confirming..." : "Confirm"}
-                                </button>
-                              ) : null}
-                              {canReject && observation.id ? (
-                                <button
-                                  className="action-button secondary danger table-action-button"
-                                  type="button"
-                                  onClick={() =>
-                                    handleRejectParsedObservation(observation.id!)
-                                  }
-                                  disabled={isActionRunning}
-                                >
-                                  {isRejecting ? "Rejecting..." : "Reject"}
-                                </button>
-                              ) : null}
-                              {!isClinician && !isReviewable ? (
-                                <span className="dashboard-summary-detail">
-                                  No action
-                                </span>
-                              ) : null}
-                            </div>
+                            <dl className="parsed-observation-detail-grid">
+                              <div>
+                                <dt>Test name</dt>
+                                <dd>
+                                  {formatOptionalValue(observation.rawTestName)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Observed date</dt>
+                                <dd>{formatDate(observation.observedAt)}</dd>
+                              </div>
+                              <div>
+                                <dt>Raw value</dt>
+                                <dd>
+                                  {formatOptionalValue(observation.rawValue)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Numeric value</dt>
+                                <dd>{formatParsedValue(observation)}</dd>
+                              </div>
+                              <div>
+                                <dt>Reference range</dt>
+                                <dd>
+                                  {formatOptionalValue(
+                                    observation.referenceRange
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Matched test</dt>
+                                <dd>
+                                  {observation.matchedTestId ? (
+                                    <span
+                                      className="matched-test-cell"
+                                      title={observation.matchedTestId}
+                                    >
+                                      <span className="matched-test-name">
+                                        {matchedTest?.displayName ??
+                                          "Catalog match unavailable"}
+                                      </span>
+                                      <span className="muted-id">
+                                        ID{" "}
+                                        {formatShortId(
+                                          observation.matchedTestId
+                                        )}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    "Not provided"
+                                  )}
+                                </dd>
+                              </div>
+                            </dl>
                           )}
-                        </td>
-                      </tr>
+                        </div>
+
+                        {hasActionPanel ? (
+                          <aside className="parsed-observation-card-actions">
+                            {isEditing && observation.id ? (
+                              <>
+                                <button
+                                  className="action-button"
+                                  type="button"
+                                  onClick={() =>
+                                    handleSaveParsedObservation(observation.id!)
+                                  }
+                                  disabled={isActionRunning}
+                                >
+                                  {isSaving ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                  className="action-button secondary"
+                                  type="button"
+                                  onClick={handleCancelEdit}
+                                  disabled={isActionRunning}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {canEdit ? (
+                                  <button
+                                    className="action-button secondary"
+                                    type="button"
+                                    onClick={() =>
+                                      handleEditParsedObservation(observation)
+                                    }
+                                    disabled={
+                                      isActionRunning ||
+                                      editingObservationId !== null
+                                    }
+                                  >
+                                    Edit
+                                  </button>
+                                ) : null}
+                                {isClinician ? (
+                                  <span className="review-readonly-badge">
+                                    View only
+                                  </span>
+                                ) : null}
+                                {!isClinician &&
+                                isConfirmable &&
+                                observation.id ? (
+                                  <button
+                                    className="action-button"
+                                    type="button"
+                                    onClick={() =>
+                                      handleConfirmParsedObservation(
+                                        observation.id!
+                                      )
+                                    }
+                                    disabled={isActionRunning}
+                                  >
+                                    {isConfirming ? "Confirming..." : "Confirm"}
+                                  </button>
+                                ) : null}
+                                {canReject && observation.id ? (
+                                  <button
+                                    className="action-button secondary danger"
+                                    type="button"
+                                    onClick={() =>
+                                      handleRejectParsedObservation(
+                                        observation.id!
+                                      )
+                                    }
+                                    disabled={isActionRunning}
+                                  >
+                                    {isRejecting ? "Rejecting..." : "Reject"}
+                                  </button>
+                                ) : null}
+                              </>
+                            )}
+                          </aside>
+                        ) : null}
+                      </article>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+              </div>
+            ) : null}
+          </section>
+
+          {!isClinician ? (
+            <section className="report-danger-zone">
+              <div>
+                <p className="eyebrow">Danger area</p>
+                <h3>Delete report</h3>
+                <p>
+                  Delete this source report only if it is no longer needed.
+                  Backend restrictions will show here if confirmed data prevents
+                  deletion.
+                </p>
+              </div>
+              <button
+                className="action-button secondary danger"
+                type="button"
+                onClick={handleDeleteReport}
+                disabled={isActionRunning}
+              >
+                {isDeletingReport ? "Deleting..." : "Delete Report"}
+              </button>
+            </section>
           ) : null}
-        </section>
+        </>
       ) : null}
     </section>
   );
