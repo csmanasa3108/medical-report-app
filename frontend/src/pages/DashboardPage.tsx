@@ -32,6 +32,8 @@ type SummaryCard = {
   label: string;
   value: string;
   detail: string;
+  detailTitle?: string;
+  truncateDetail?: boolean;
   to?: string;
   tone?: "primary" | "sand" | "neutral";
 };
@@ -220,6 +222,8 @@ function buildPatientSummaryCards(
         : latestReport
           ? `Latest: ${latestReport.originalFilename}`
           : "No reports uploaded yet",
+      detailTitle: latestReport?.originalFilename,
+      truncateDetail: Boolean(latestReport),
       to: "/reports",
       tone: "primary"
     },
@@ -275,7 +279,16 @@ function DashboardSummaryGrid({ cards }: { cards: SummaryCard[] }) {
           <>
             <span className="dashboard-summary-label">{card.label}</span>
             <strong className="dashboard-summary-value">{card.value}</strong>
-            <span className="dashboard-summary-detail">{card.detail}</span>
+            <span
+              className={
+                card.truncateDetail
+                  ? "dashboard-summary-detail text-truncate"
+                  : "dashboard-summary-detail"
+              }
+              title={card.detailTitle}
+            >
+              {card.detail}
+            </span>
           </>
         );
 
@@ -347,11 +360,14 @@ function PatientNeedsReviewPanel({
             <Link
               className="dashboard-review-item"
               key={observation.parsedObservationId}
+              title={observation.reportOriginalFilename}
               to={`/reports/${observation.reportId}`}
             >
               <span>
                 <strong>{getObservationName(observation)}</strong>
-                <small>{observation.reportOriginalFilename}</small>
+                <small className="text-truncate">
+                  {observation.reportOriginalFilename}
+                </small>
               </span>
               <span>{formatOptionalDate(observation.observedAt)}</span>
             </Link>
@@ -399,17 +415,25 @@ function RecentActivityPanel({
 
       {!isLoading && !errorMessage && visibleEvents.length > 0 ? (
         <div className="dashboard-activity-list">
-          {visibleEvents.map((event) => (
-            <article className="dashboard-activity-item" key={event.id}>
-              <span>
-                <strong>{formatAction(event.action)}</strong>
-                <small>
-                  {formatLabel(event.actorRole)} - {formatLabel(event.resourceType)}
-                </small>
-              </span>
-              <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
-            </article>
-          ))}
+          {visibleEvents.map((event) => {
+            const eventMeta = `${formatLabel(event.actorRole)} - ${formatLabel(
+              event.resourceType
+            )}`;
+
+            return (
+              <article className="dashboard-activity-item" key={event.id}>
+                <span>
+                  <strong>{formatAction(event.action)}</strong>
+                  <small className="text-truncate" title={eventMeta}>
+                    {eventMeta}
+                  </small>
+                </span>
+                <time dateTime={event.createdAt}>
+                  {formatDateTime(event.createdAt)}
+                </time>
+              </article>
+            );
+          })}
         </div>
       ) : null}
     </section>
