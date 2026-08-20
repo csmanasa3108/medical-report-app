@@ -1047,6 +1047,88 @@ h2 {
   margin-top: 0;
 }
 
+.trends-page,
+.trend-detail-page {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.trends-page-header,
+.trend-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-7);
+  padding: var(--space-10);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(90deg, var(--color-primary-tint), transparent 58%),
+    var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.trends-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.trend-selector-panel {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-9);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.trend-selector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.trend-selector-header h3,
+.trends-empty-state h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+.trends-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+  min-height: 220px;
+  padding: var(--space-10);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(90deg, var(--color-accent-tint), transparent 62%),
+    var(--color-white);
+}
+
+.trends-empty-state p:not(.eyebrow) {
+  max-width: 600px;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+}
+
+.trends-empty-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
 .trends-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1090,11 +1172,18 @@ h2 {
 }
 
 .trend-test-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
   margin: var(--space-7) 0 0;
 }
 
 .trend-test-meta div {
   min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
 }
 
 .trend-test-meta dt {
@@ -1120,18 +1209,6 @@ h2 {
   background: var(--color-white);
 }
 
-.trend-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-7);
-  margin-bottom: var(--space-9);
-}
-
-.trend-header h2 {
-  margin-bottom: 0;
-}
-
 .trend-header-actions {
   display: flex;
   flex: 0 0 auto;
@@ -1155,7 +1232,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-5);
-  margin: 0 0 var(--space-10);
+  margin: 0;
 }
 
 .trend-summary div {
@@ -1176,6 +1253,7 @@ h2 {
   color: var(--color-text-primary);
   font-size: var(--font-size-lg);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .trend-chart-card {
@@ -1285,13 +1363,17 @@ h2 {
 }
 
 .trend-points-section {
-  margin-top: var(--space-10);
-  padding-top: var(--space-9);
-  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-9);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--color-white);
+  box-shadow: var(--card-shadow);
 }
 
 .trend-points-header {
-  margin-bottom: var(--space-5);
+  margin-bottom: 0;
 }
 
 .trend-points-header h3 {
@@ -1302,7 +1384,12 @@ h2 {
 }
 
 .trend-points-table {
-  min-width: 820px;
+  min-width: 1040px;
+  table-layout: fixed;
+}
+
+.trend-source-filename {
+  display: block;
 }
 
 .review-queue-table {
@@ -2264,6 +2351,7 @@ h2 {
   .reports-summary-grid,
   .dashboard-action-grid,
   .trends-grid,
+  .trend-test-meta,
   .trend-summary,
   .dashboard-main-grid,
   .clinician-dashboard-grid,
@@ -2387,6 +2475,10 @@ h2 {
   .report-detail-section-header,
   .report-detail-empty-state,
   .report-danger-zone,
+  .trends-page-header,
+  .trend-detail-header,
+  .trend-selector-header,
+  .trends-empty-state,
   .review-queue-header,
   .review-item-title-row,
   .parsed-observations-header,
@@ -2396,7 +2488,9 @@ h2 {
     flex-direction: column;
   }
 
-  .reports-header-actions {
+  .reports-header-actions,
+  .trends-header-actions,
+  .trends-empty-actions {
     justify-content: flex-start;
   }
 
@@ -2439,7 +2533,8 @@ h2 {
     width: 100%;
   }
 
-  .trends-grid {
+  .trends-grid,
+  .trend-test-meta {
     grid-template-columns: 1fr;
   }
 
@@ -2458,10 +2553,6 @@ h2 {
   .upload-summary,
   .detail-list {
     grid-template-columns: 1fr;
-  }
-
-  .trend-header {
-    flex-direction: column;
   }
 
   .trend-header-actions {

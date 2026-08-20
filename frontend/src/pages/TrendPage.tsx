@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   formatLoadErrorMessage,
+  getAssignedPatients,
   getLabTrend,
   getSelectedAssignedPatientId,
   getTests,
   LabTrendResponse,
   TestCatalogResponse
 } from "../api/client";
-import type { DevUser } from "../api/client";
+import type { AssignedPatientResponse, DevUser } from "../api/client";
 
 type TrendPageProps = {
   devUser: DevUser;
@@ -28,9 +29,6 @@ type ChartPoint = {
 
 type Summary = {
   latestValue: number | null;
-  previousValue: number | null;
-  absoluteChange: number | null;
-  percentChange: number | null;
 };
 
 function getCatalogTestName(test: TestCatalogResponse | undefined) {
@@ -45,14 +43,6 @@ function formatNumber(value: number | null | undefined) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2
   }).format(value);
-}
-
-function formatPercent(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return "N/A";
-  }
-
-  return `${formatNumber(value)}%`;
 }
 
 function formatValueWithUnit(value: number | null | undefined, unit: string | null | undefined) {
@@ -92,27 +82,30 @@ function sortTrendPoints(points: ChartPoint[]) {
 
 function getSummary(trend: LabTrendResponse, points: ChartPoint[]): Summary {
   const latestPoint = points[points.length - 1];
-  const previousPoint = points[points.length - 2];
   const latestValue = trend.latestValue ?? latestPoint?.numericValue ?? null;
-  const previousValue =
-    trend.previousValue ?? previousPoint?.numericValue ?? null;
-  const absoluteChange =
-    trend.absoluteChange ??
-    (latestValue !== null && previousValue !== null
-      ? latestValue - previousValue
-      : null);
-  const percentChange =
-    trend.percentChange ??
-    (absoluteChange !== null && previousValue
-      ? (absoluteChange / previousValue) * 100
-      : null);
 
   return {
-    latestValue,
-    previousValue,
-    absoluteChange,
-    percentChange
+    latestValue
   };
+}
+
+function getDateRange(points: ChartPoint[]) {
+  if (points.length === 0) {
+    return "N/A";
+  }
+
+  const firstDate = formatDate(points[0].observedAt);
+  const lastDate = formatDate(points[points.length - 1].observedAt);
+  return firstDate === lastDate ? firstDate : `${firstDate} - ${lastDate}`;
+}
+
+function getLinkedReportCount(points: ChartPoint[]) {
+  return new Set(
+    points
+      .filter((point) => normalizeSourceType(point.sourceType) === "REPORT")
+      .map((point) => point.reportId ?? point.reportOriginalFilename)
+      .filter(Boolean)
+  ).size;
 }
 
 function normalizeSourceType(sourceType: string | null | undefined) {
@@ -257,17 +250,22 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
   return (
     <section className="trend-points-section" aria-labelledby="trend-points-title">
       <div className="trend-points-header">
-        <h3 id="trend-points-title">Trend points</h3>
+        <div>
+          <p className="eyebrow">Sources</p>
+          <h3 id="trend-points-title">Trend points</h3>
+        </div>
       </div>
       <div className="table-scroll">
         <table className="reports-table trend-points-table">
           <thead>
             <tr>
-              <th>Date</th>
+              <th>Observed date</th>
               <th>Value</th>
-              <th>Unit</th>
-              <th>Source</th>
-              <th>Lab / Report</th>
+              <th>Source type</th>
+              <th>Source report</th>
+              <th>Lab</th>
+              <th>Report date</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -278,36 +276,43 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
               return (
                 <tr key={`${point.observedAt}-${point.numericValue}-${point.parsedObservationId ?? index}`}>
                   <td className="nowrap-cell">{formatDate(point.observedAt)}</td>
-                  <td>{formatNumber(point.numericValue)}</td>
-                  <td>{unit || "N/A"}</td>
+                  <td>{formatValueWithUnit(point.numericValue, unit)}</td>
                   <td>
                     {sourceType === "REPORT" ? (
-                      <span className="status-badge source-badge-report">REPORT</span>
+                      <span className="status-badge source-badge-report">Report</span>
                     ) : null}
                     {sourceType === "MANUAL" ? (
-                      <span className="status-badge source-badge-manual">MANUAL</span>
+                      <span className="status-badge source-badge-manual">Manual</span>
                     ) : null}
                     {!sourceType ? (
                       <span className="status-badge status-badge-neutral">Unknown source</span>
                     ) : null}
                   </td>
                   <td>
-                    {sourceType === "REPORT" ? (
-                      <div className="trend-source-detail">
-                        <span className="trend-source-lab">
-                          {point.labName || "Unknown lab"}
-                        </span>
-                        {point.reportId && point.reportOriginalFilename ? (
-                          <Link to={`/reports/${point.reportId}`}>
-                            {point.reportOriginalFilename}
-                          </Link>
-                        ) : (
-                          <span>{point.reportOriginalFilename || "Report file unavailable"}</span>
-                        )}
-                      </div>
+                    {sourceType === "REPORT" && point.reportOriginalFilename ? (
+                      <span className="trend-source-filename text-truncate" title={point.reportOriginalFilename}>
+                        {point.reportOriginalFilename}
+                      </span>
                     ) : null}
                     {sourceType === "MANUAL" ? "Manual entry" : null}
+                    {sourceType === "REPORT" && !point.reportOriginalFilename
+                      ? "Report file unavailable"
+                      : null}
                     {!sourceType ? "Unknown source" : null}
+                  </td>
+                  <td>{point.labName || "Not provided"}</td>
+                  <td>{formatDate(point.reportDate)}</td>
+                  <td>
+                    {point.reportId ? (
+                      <Link
+                        className="button-link secondary table-action-button"
+                        to={`/reports/${point.reportId}`}
+                      >
+                        Open Report
+                      </Link>
+                    ) : (
+                      <span className="review-readonly-badge">No report link</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -323,10 +328,59 @@ function TrendPage({ devUser }: TrendPageProps) {
   const { testId } = useParams();
   const [trend, setTrend] = useState<LabTrendResponse | null>(null);
   const [tests, setTests] = useState<TestCatalogResponse[]>([]);
+  const [assignedPatients, setAssignedPatients] = useState<
+    AssignedPatientResponse[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPatientContext, setIsLoadingPatientContext] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [patientContextErrorMessage, setPatientContextErrorMessage] =
+    useState("");
   const isClinician = devUser.role === "CLINICIAN";
   const selectedPatientId = isClinician ? getSelectedAssignedPatientId() : null;
+  const selectedPatient =
+    assignedPatients.find((patient) => patient.patientId === selectedPatientId) ??
+    null;
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    setIsLoadingPatientContext(isClinician);
+    setPatientContextErrorMessage("");
+    setAssignedPatients([]);
+
+    if (!isClinician) {
+      setIsLoadingPatientContext(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    getAssignedPatients()
+      .then((patients) => {
+        if (isCurrent) {
+          setAssignedPatients(patients);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setPatientContextErrorMessage(
+          formatLoadErrorMessage(error, "Unable to load selected patient.")
+        );
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoadingPatientContext(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isClinician]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -341,7 +395,7 @@ function TrendPage({ devUser }: TrendPageProps) {
     if (isClinician && !selectedPatientId) {
       setTrend(null);
       setTests([]);
-      setErrorMessage("Select an assigned patient first.");
+      setErrorMessage("Select a patient to view trends.");
       setIsLoading(false);
       return () => {
         isCurrent = false;
@@ -396,7 +450,6 @@ function TrendPage({ devUser }: TrendPageProps) {
   const trendName =
     getCatalogTestName(selectedTest) || trend?.testName?.trim() || "Selected Test";
   const trendUnit = trend?.unit ?? selectedTest?.defaultUnit ?? "";
-  const trendTitle = trend ? `${trendName} Trend` : "Trend";
   const points = useMemo(() => {
     const mappedPoints =
       trend?.points
@@ -409,9 +462,54 @@ function TrendPage({ devUser }: TrendPageProps) {
     () => (trend ? getSummary(trend, points) : null),
     [points, trend]
   );
+  const linkedReportCount = getLinkedReportCount(points);
 
   return (
-    <section className="page-section">
+    <section className="trend-detail-page">
+      <div className="trend-detail-header">
+        <div>
+          <p className="eyebrow">Confirmed results</p>
+          <h2 className="page-title">{trend ? trendName : "Trends"}</h2>
+          <p className="page-description">
+            Track confirmed results over time.
+          </p>
+        </div>
+        <div className="trend-header-actions">
+          {trendUnit ? <span className="unit-badge">{trendUnit}</span> : null}
+          <Link className="button-link secondary" to="/trends">
+            Back to Trends
+          </Link>
+          <Link className="button-link secondary" to="/review">
+            Open Review Queue
+          </Link>
+        </div>
+      </div>
+
+      {isClinician && selectedPatientId ? (
+        <section className="selected-report-patient-card">
+          <span className="dashboard-summary-label">Selected patient</span>
+          {isLoadingPatientContext ? (
+            <strong>Loading patient...</strong>
+          ) : selectedPatient ? (
+            <>
+              <strong>{selectedPatient.displayName}</strong>
+              <span>{selectedPatient.email}</span>
+            </>
+          ) : (
+            <>
+              <strong>Selected patient</strong>
+              <span>{selectedPatientId}</span>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {!isLoadingPatientContext && patientContextErrorMessage ? (
+        <p className="status-message error-message trend-state-message" role="alert">
+          {patientContextErrorMessage}
+        </p>
+      ) : null}
+
       {isLoading ? (
         <p className="status-message trend-state-message">Loading trend data...</p>
       ) : null}
@@ -424,55 +522,60 @@ function TrendPage({ devUser }: TrendPageProps) {
 
       {!isLoading && !errorMessage && trend ? (
         <>
-          <div className="trend-header">
-            <div>
-              <p className="eyebrow">Trend</p>
-              <h2 className="page-title">{trendTitle}</h2>
-              <p className="page-description">
-                {trendUnit
-                  ? `Unit: ${trendUnit}`
-                  : "Review diagnostic values over time."}
-              </p>
-            </div>
-            <div className="trend-header-actions">
-              {trendUnit ? <span className="unit-badge">{trendUnit}</span> : null}
-              <Link className="button-link secondary" to="/trends">
-                Back to Trends
-              </Link>
-            </div>
-          </div>
-
           <dl className="trend-summary">
             <div>
               <dt>Latest value</dt>
               <dd>{formatValueWithUnit(summary?.latestValue, trendUnit)}</dd>
             </div>
             <div>
-              <dt>Previous value</dt>
-              <dd>{formatValueWithUnit(summary?.previousValue, trendUnit)}</dd>
+              <dt>Confirmed points</dt>
+              <dd>{points.length.toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Absolute change</dt>
-              <dd>{formatValueWithUnit(summary?.absoluteChange, trendUnit)}</dd>
+              <dt>Date range</dt>
+              <dd>{getDateRange(points)}</dd>
             </div>
             <div>
-              <dt>Percent change</dt>
-              <dd>{formatPercent(summary?.percentChange)}</dd>
+              <dt>Linked reports</dt>
+              <dd>{linkedReportCount.toLocaleString()}</dd>
             </div>
           </dl>
 
           {points.length === 0 ? (
-            <div className="trend-chart-empty">
-              No trend data yet for this test.
-            </div>
+            <section className="trends-empty-state">
+              <div>
+                <p className="eyebrow">Confirmed results</p>
+                <h3>No confirmed trends yet</h3>
+                <p>
+                  Confirm extracted results from the Review Queue to start
+                  building trends.
+                </p>
+              </div>
+              <div className="trends-empty-actions">
+                <Link className="button-link" to="/review">
+                  Open Review Queue
+                </Link>
+                {isClinician ? (
+                  <Link className="button-link secondary" to="/reports">
+                    View Patient Reports
+                  </Link>
+                ) : (
+                  <Link className="button-link secondary" to="/upload">
+                    Upload Report
+                  </Link>
+                )}
+              </div>
+            </section>
           ) : (
             <section className="trend-chart-card" aria-label="Trend chart">
               <div className="trend-chart-card-header">
                 <div>
-                  <h3>Diagnostic trend</h3>
+                  <p className="eyebrow">Chart</p>
+                  <h3>{trendName}</h3>
                   <p>
-                    {points.length} point{points.length === 1 ? "" : "s"} plotted
-                    over time.
+                    {points.length === 1
+                      ? "1 confirmed result. More confirmed points are needed for a trend."
+                      : `${points.length.toLocaleString()} confirmed results plotted over time.`}
                   </p>
                 </div>
               </div>
