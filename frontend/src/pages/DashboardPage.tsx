@@ -22,30 +22,23 @@ const patientDashboardActions: DashboardAction[] = [
   {
     title: "Upload Report",
     description: "Add a diagnostic report with report date and lab metadata.",
-    to: "/reports/new",
+    to: "/upload",
     tone: "primary",
     meta: "New report"
   },
   {
-    title: "My Reports",
-    description: "Review extracted observations from your uploaded reports.",
-    to: "/reports",
-    tone: "teal",
-    meta: "Report library"
-  },
-  {
-    title: "Add Manual Observation",
+    title: "Add Observation",
     description: "Enter lab observations directly for trend tracking.",
     to: "/observations/new",
     tone: "sand",
     meta: "Manual entry"
   },
   {
-    title: "My Trends",
-    description: "Open your longitudinal lab trend views.",
-    to: "/trends",
+    title: "Review Queue",
+    description: "Review extracted results before adding them to trends.",
+    to: "/review",
     tone: "teal",
-    meta: "Trend analytics"
+    meta: "Pending results"
   }
 ];
 

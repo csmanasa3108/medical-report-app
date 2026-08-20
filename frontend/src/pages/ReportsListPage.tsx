@@ -156,7 +156,7 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
           </p>
         </div>
         {!isClinician ? (
-          <Link className="button-link" to="/reports/new">
+          <Link className="button-link" to="/upload">
             Upload Report
           </Link>
         ) : null}
