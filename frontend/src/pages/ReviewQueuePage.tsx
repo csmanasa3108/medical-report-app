@@ -13,6 +13,14 @@ type ReviewQueuePageProps = {
   devUser: DevUser;
 };
 
+type ReviewStatus = "NEEDS_REVIEW" | "CONFIRMED" | "REJECTED";
+
+const REVIEW_STATUS_OPTIONS: Array<{ label: string; value: ReviewStatus }> = [
+  { label: "Needs Review", value: "NEEDS_REVIEW" },
+  { label: "Confirmed", value: "CONFIRMED" },
+  { label: "Rejected", value: "REJECTED" }
+];
+
 function formatDate(value: string | null) {
   if (!value) {
     return "Not provided";
@@ -31,8 +39,8 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function formatValue(observation: ParsedObservationReviewResponse) {
-  if (observation.valueText) {
+function formatExtractedValue(observation: ParsedObservationReviewResponse) {
+  if (observation.valueText?.trim()) {
     return observation.valueText;
   }
 
@@ -40,10 +48,9 @@ function formatValue(observation: ParsedObservationReviewResponse) {
     return "Not provided";
   }
 
-  const value = observation.numericValue.toLocaleString(undefined, {
+  return observation.numericValue.toLocaleString(undefined, {
     maximumFractionDigits: 4
   });
-  return observation.unit ? `${value} ${observation.unit}` : value;
 }
 
 function formatOptionalValue(value: string | null) {
@@ -52,10 +59,18 @@ function formatOptionalValue(value: string | null) {
 
 function formatFlag(flag: string | null) {
   if (!flag) {
-    return "unknown";
+    return "";
   }
 
   return flag.replace(/_/g, " ").toLowerCase();
+}
+
+function formatStatus(status: string) {
+  return status
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function getFlagClass(flag: string | null) {
@@ -71,10 +86,217 @@ function getFlagClass(flag: string | null) {
   }
 }
 
+function getStatusClass(status: string) {
+  switch (status) {
+    case "NEEDS_REVIEW":
+      return "status-badge-review";
+    case "CONFIRMED":
+      return "status-badge-confirmed";
+    case "REJECTED":
+      return "status-badge-rejected";
+    default:
+      return "status-badge-neutral";
+  }
+}
+
+function getCountLabel(count: number, status: ReviewStatus, isLoading: boolean) {
+  if (isLoading) {
+    return "Loading results";
+  }
+
+  const formattedCount = count.toLocaleString();
+
+  switch (status) {
+    case "CONFIRMED":
+      return `${formattedCount} confirmed ${count === 1 ? "result" : "results"}`;
+    case "REJECTED":
+      return `${formattedCount} rejected ${count === 1 ? "result" : "results"}`;
+    case "NEEDS_REVIEW":
+    default:
+      return `${formattedCount} ${count === 1 ? "result" : "results"} waiting`;
+  }
+}
+
+function ReviewEmptyState({
+  isClinician,
+  status
+}: {
+  isClinician: boolean;
+  status: ReviewStatus;
+}) {
+  const isNeedsReview = status === "NEEDS_REVIEW";
+
+  return (
+    <section className="review-empty-state">
+      <div>
+        <p className="eyebrow">Worklist</p>
+        <h3>
+          {isNeedsReview
+            ? "No results waiting for review"
+            : `No ${formatStatus(status).toLowerCase()} results`}
+        </h3>
+        <p>
+          {isNeedsReview
+            ? "Upload a report to extract results, or check confirmed results in Trends."
+            : "Use the status filters to review another part of the worklist."}
+        </p>
+      </div>
+      <div className="review-empty-actions">
+        {isClinician ? (
+          <Link className="button-link" to="/reports">
+            View Patient Reports
+          </Link>
+        ) : (
+          <Link className="button-link" to="/upload">
+            Upload Report
+          </Link>
+        )}
+        <Link className="button-link secondary" to="/trends">
+          View Trends
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function SelectPatientEmptyState() {
+  return (
+    <section className="review-empty-state">
+      <div>
+        <p className="eyebrow">Patient required</p>
+        <h3>Select a patient to view their review queue</h3>
+        <p>
+          Choose an assigned patient before opening parsed observations,
+          reports, trends, or activity.
+        </p>
+      </div>
+      <div className="review-empty-actions">
+        <Link className="button-link" to="/patients">
+          View Assigned Patients
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function ReviewObservationCard({
+  isAnyActionRunning,
+  isPatient,
+  observation,
+  onConfirm,
+  onReject,
+  runningActionId
+}: {
+  isAnyActionRunning: boolean;
+  isPatient: boolean;
+  observation: ParsedObservationReviewResponse;
+  onConfirm: (parsedObservationId: string) => void;
+  onReject: (parsedObservationId: string) => void;
+  runningActionId: string | null;
+}) {
+  const isActionRunning = runningActionId === observation.parsedObservationId;
+  const isReviewable = observation.status === "NEEDS_REVIEW";
+
+  return (
+    <article className="review-item-card">
+      <div className="review-item-main">
+        <div className="review-item-title-row">
+          <div>
+            <p className="eyebrow">Parsed result</p>
+            <h3>{formatOptionalValue(observation.testName)}</h3>
+          </div>
+          <span className={`status-badge ${getStatusClass(observation.status)}`}>
+            {formatStatus(observation.status)}
+          </span>
+        </div>
+
+        <dl className="review-item-details">
+          <div>
+            <dt>Raw extracted value</dt>
+            <dd>{formatExtractedValue(observation)}</dd>
+          </div>
+          <div>
+            <dt>Unit</dt>
+            <dd>{formatOptionalValue(observation.unit)}</dd>
+          </div>
+          <div>
+            <dt>Observed date</dt>
+            <dd>{formatDate(observation.observedAt)}</dd>
+          </div>
+          <div>
+            <dt>Reference range</dt>
+            <dd>{formatOptionalValue(observation.referenceRange)}</dd>
+          </div>
+        </dl>
+
+        <div className="review-source-panel">
+          <div>
+            <span className="review-source-label">Source report</span>
+            <strong>{observation.reportOriginalFilename}</strong>
+          </div>
+          <div>
+            <span className="review-source-label">Lab</span>
+            <span>{formatOptionalValue(observation.labName)}</span>
+          </div>
+          <div>
+            <span className="review-source-label">Report date</span>
+            <span>{formatDate(observation.reportDate)}</span>
+          </div>
+        </div>
+      </div>
+
+      <aside className="review-item-side">
+        {observation.abnormalFlag ? (
+          <span className={`status-badge ${getFlagClass(observation.abnormalFlag)}`}>
+            {formatFlag(observation.abnormalFlag)}
+          </span>
+        ) : (
+          <span className="status-badge status-badge-neutral">No flag</span>
+        )}
+
+        <Link className="button-link secondary" to={`/reports/${observation.reportId}`}>
+          Open source report
+        </Link>
+
+        {isPatient && isReviewable ? (
+          <div className="review-card-actions">
+            <button
+              className="action-button review-card-action-button"
+              type="button"
+              disabled={isAnyActionRunning}
+              onClick={() => onConfirm(observation.parsedObservationId)}
+            >
+              {isActionRunning ? "Working..." : "Confirm"}
+            </button>
+            <button
+              className="action-button secondary danger review-card-action-button"
+              type="button"
+              disabled={isAnyActionRunning}
+              onClick={() => onReject(observation.parsedObservationId)}
+            >
+              Reject
+            </button>
+          </div>
+        ) : null}
+
+        {!isPatient ? (
+          <span className="review-readonly-badge">View only</span>
+        ) : null}
+
+        {isPatient && !isReviewable ? (
+          <span className="review-readonly-badge">Reviewed</span>
+        ) : null}
+      </aside>
+    </article>
+  );
+}
+
 function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
   const [observations, setObservations] = useState<
     ParsedObservationReviewResponse[]
   >([]);
+  const [selectedStatus, setSelectedStatus] =
+    useState<ReviewStatus>("NEEDS_REVIEW");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -98,7 +320,7 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
       };
     }
 
-    getParsedObservationReviewQueue(selectedPatientId)
+    getParsedObservationReviewQueue(selectedPatientId, selectedStatus)
       .then((reviewQueue) => {
         if (isCurrent) {
           setObservations(reviewQueue);
@@ -122,12 +344,15 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
     return () => {
       isCurrent = false;
     };
-  }, [isClinician, selectedPatientId]);
+  }, [isClinician, selectedPatientId, selectedStatus]);
 
   useEffect(() => loadReviewQueue(), [loadReviewQueue]);
 
   async function refreshReviewQueue() {
-    const reviewQueue = await getParsedObservationReviewQueue(selectedPatientId);
+    const reviewQueue = await getParsedObservationReviewQueue(
+      selectedPatientId,
+      selectedStatus
+    );
     setObservations(reviewQueue);
   }
 
@@ -167,16 +392,43 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
     }
   }
 
+  const countLabel =
+    isClinician && !selectedPatientId && !isLoading
+      ? "Select patient"
+      : getCountLabel(observations.length, selectedStatus, isLoading);
+  const isAnyActionRunning = runningActionId !== null;
+
   return (
-    <section className="page-section">
-      <div className="section-header">
+    <section className="review-queue-page">
+      <div className="review-queue-header">
         <div>
           <p className="eyebrow">Parsed results</p>
           <h2 className="page-title">Review Queue</h2>
           <p className="page-description">
-            Review extracted results before adding them to trends.
+            Review extracted results before they appear in trends.
           </p>
         </div>
+        <span className="review-count-pill">{countLabel}</span>
+      </div>
+
+      <div className="review-filter-bar" aria-label="Review status filter">
+        {REVIEW_STATUS_OPTIONS.map((option) => (
+          <button
+            className={
+              option.value === selectedStatus
+                ? "review-filter-pill active"
+                : "review-filter-pill"
+            }
+            key={option.value}
+            type="button"
+            onClick={() => {
+              setSelectedStatus(option.value);
+              setSuccessMessage("");
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {isLoading ? (
@@ -196,112 +448,29 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
       ) : null}
 
       {!isLoading && !errorMessage && isClinician && !selectedPatientId ? (
-        <p className="status-message">
-          Select a patient to view their review queue.
-        </p>
+        <SelectPatientEmptyState />
       ) : null}
 
       {!isLoading &&
       !errorMessage &&
       (!isClinician || selectedPatientId) &&
       observations.length === 0 ? (
-        <p className="status-message">No results waiting for review.</p>
+        <ReviewEmptyState isClinician={isClinician} status={selectedStatus} />
       ) : null}
 
       {!isLoading && !errorMessage && observations.length > 0 ? (
-        <div className="table-scroll">
-          <table className="reports-table review-queue-table">
-            <thead>
-              <tr>
-                <th>Test</th>
-                <th>Value</th>
-                <th>Observed</th>
-                <th>Reference</th>
-                <th>Flag</th>
-                <th>Report</th>
-                <th>Lab</th>
-                <th>Report date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {observations.map((observation) => {
-                const isActionRunning =
-                  runningActionId === observation.parsedObservationId;
-                const isAnyActionRunning = runningActionId !== null;
-                const isReviewable = observation.status === "NEEDS_REVIEW";
-
-                return (
-                  <tr key={observation.parsedObservationId}>
-                    <td className="report-filename">
-                      {formatOptionalValue(observation.testName)}
-                    </td>
-                    <td>{formatValue(observation)}</td>
-                    <td>{formatDate(observation.observedAt)}</td>
-                    <td>{formatOptionalValue(observation.referenceRange)}</td>
-                    <td>
-                      <span
-                        className={`status-badge ${getFlagClass(
-                          observation.abnormalFlag
-                        )}`}
-                      >
-                        {formatFlag(observation.abnormalFlag)}
-                      </span>
-                    </td>
-                    <td>{observation.reportOriginalFilename}</td>
-                    <td>{formatOptionalValue(observation.labName)}</td>
-                    <td>{formatDate(observation.reportDate)}</td>
-                    <td>
-                      <div className="table-action-group">
-                        <Link
-                          className="table-detail-link"
-                          to={`/reports/${observation.reportId}`}
-                        >
-                          View report
-                        </Link>
-                        {isPatient && isReviewable ? (
-                          <>
-                            <button
-                              className="action-button table-action-button"
-                              type="button"
-                              disabled={isAnyActionRunning}
-                              onClick={() =>
-                                handleConfirm(
-                                  observation.parsedObservationId
-                                )
-                              }
-                            >
-                              {isActionRunning ? "Working..." : "Confirm"}
-                            </button>
-                            <button
-                              className="action-button secondary danger table-action-button"
-                              type="button"
-                              disabled={isAnyActionRunning}
-                              onClick={() =>
-                                handleReject(observation.parsedObservationId)
-                              }
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : null}
-                        {!isPatient ? (
-                          <span className="dashboard-summary-detail">
-                            View only
-                          </span>
-                        ) : null}
-                        {isPatient && !isReviewable ? (
-                          <span className="dashboard-summary-detail">
-                            No action
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="review-worklist" aria-label="Parsed observation worklist">
+          {observations.map((observation) => (
+            <ReviewObservationCard
+              isAnyActionRunning={isAnyActionRunning}
+              isPatient={isPatient}
+              key={observation.parsedObservationId}
+              observation={observation}
+              onConfirm={handleConfirm}
+              onReject={handleReject}
+              runningActionId={runningActionId}
+            />
+          ))}
         </div>
       ) : null}
     </section>

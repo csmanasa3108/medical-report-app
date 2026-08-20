@@ -448,9 +448,17 @@ export function getParsedObservations(reportId: string) {
   );
 }
 
-export function getParsedObservationReviewQueue(patientId?: string | null) {
+export function getParsedObservationReviewQueue(
+  patientId?: string | null,
+  status?: string | null
+) {
+  const scopedPath = withPatientScope(
+    "/api/review/parsed-observations",
+    patientId
+  );
+
   return apiRequest<ParsedObservationReviewResponse[]>(
-    withPatientScope("/api/review/parsed-observations", patientId)
+    status ? appendQueryParam(scopedPath, "status", status) : scopedPath
   );
 }
 
