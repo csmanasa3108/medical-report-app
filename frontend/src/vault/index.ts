@@ -1,0 +1,37 @@
+import { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";
+import { LocalPatientVaultService } from "./LocalPatientVaultService";
+import type { PatientVaultService } from "./PatientVaultService";
+import { getPatientVaultMode } from "./config";
+import type { PatientVaultMode } from "./models";
+
+export type { PatientVaultService } from "./PatientVaultService";
+export type {
+  PatientVaultManifest,
+  PatientVaultMode,
+  SerializedPatientVault,
+  VaultAuditEvent,
+  VaultAuditEventFilters,
+  VaultConfirmedObservationFilters,
+  VaultDiagnosticReport,
+  VaultObservation,
+  VaultParsedObservationFilters,
+  VaultParsedObservationReviewItem,
+  VaultReportDocument,
+  VaultReportFilters,
+  VaultResourceStatus,
+  VaultSourceType,
+  VaultTrendPoint
+} from "./models";
+export { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";
+export { LocalPatientVaultService } from "./LocalPatientVaultService";
+export { getPatientVaultMode } from "./config";
+
+export function createPatientVaultService(
+  mode: PatientVaultMode = getPatientVaultMode()
+): PatientVaultService {
+  if (mode === "local") {
+    return new LocalPatientVaultService();
+  }
+
+  return new ApiBackedPatientVaultService();
+}
