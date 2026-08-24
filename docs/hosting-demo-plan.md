@@ -189,13 +189,16 @@ This is the safest first public demo because local manual observations stay in t
 
 ## 10. Immediate Next Coding Task
 
-Add a visible Demo Safety Banner and environment-based mode label.
+The frontend now includes a visible demo safety banner and mode label in the app shell.
 
-Recommended behavior:
+Current banner behavior:
 
-- Always show "Synthetic demo only. Do not enter real medical data." in hosted demo environments.
-- Show current vault mode: `Local encrypted vault prototype` or `API synthetic demo`.
-- In local mode, remind users that localStorage and export/import are prototype-only.
-- In API mode, remind users that uploads must be synthetic only.
-- Make the banner configurable by environment, but default it on for hosted demo builds.
+- Always shows "Demo only - do not enter real medical data."
+- Shows current mode: `API demo` or `Local encrypted vault prototype`.
+- In local mode, warns that local vault data is encrypted in this browser only and lost passphrase means no recovery.
+- In API mode, warns that API demo mode may store synthetic demo report data on the backend.
 
+Next recommended coding task:
+
+- Add an environment-controlled hosted-demo flag if the banner ever needs to be configurable by deployment target.
+- Keep the banner enabled for public or semi-public demo builds.

@@ -109,6 +109,27 @@ function SidebarNavigation({ devUser }: { devUser: DevUser }) {
   );
 }
 
+function DemoSafetyBanner() {
+  const vaultMode = getPatientVaultMode();
+  const isLocalVaultMode = vaultMode === "local";
+
+  return (
+    <section className="demo-safety-banner" aria-label="Demo safety notice">
+      <div>
+        <strong>Demo only - do not enter real medical data.</strong>
+        <span>
+          {isLocalVaultMode
+            ? "Local vault data is encrypted in this browser only. Lost passphrase means no recovery."
+            : "API demo mode may store synthetic demo report data on the backend."}
+        </span>
+      </div>
+      <span className="demo-mode-label">
+        Mode: {isLocalVaultMode ? "Local encrypted vault prototype" : "API demo"}
+      </span>
+    </section>
+  );
+}
+
 function App() {
   const [selectedDevUser, setSelectedDevUser] = useState(getCurrentDevUser);
 
@@ -145,6 +166,8 @@ function App() {
             </div>
           </div>
         </header>
+
+        <DemoSafetyBanner />
 
         <div className="app-body">
           <SidebarNavigation devUser={selectedDevUser} />

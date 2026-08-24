@@ -117,6 +117,44 @@ select:focus-visible {
   background: var(--color-page-background);
 }
 
+.demo-safety-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4) max(var(--space-7), calc((100vw - 1500px) / 2));
+  border-bottom: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+  background: var(--color-warning-tint);
+}
+
+.demo-safety-banner div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  min-width: 0;
+}
+
+.demo-safety-banner strong {
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+}
+
+.demo-safety-banner span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.demo-mode-label {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .local-vault-warning {
   padding: var(--space-3) var(--space-7);
   border-bottom: 1px solid var(--color-warning-border);
@@ -2567,6 +2605,12 @@ h2 {
   .dev-user-switcher {
     flex-wrap: wrap;
     white-space: normal;
+  }
+
+  .demo-safety-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-3);
   }
 
   .page-content {
