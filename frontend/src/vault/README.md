@@ -9,7 +9,7 @@ Today, most medical data flows directly through backend APIs. The target model m
 Future page migrations should read and write these data types through `PatientVaultService` instead of calling backend APIs directly:
 
 - Reports, report document metadata, upload, and delete actions.
-- Parsed observation review items.
+- Parsed observation review items, report-level refresh, edit, confirm, and reject actions.
 - Confirmed observations.
 - Trend points.
 - Vault-local audit events.
@@ -21,14 +21,14 @@ The hosted backend should eventually stop storing raw reports, extracted report 
 
 `VITE_PATIENT_VAULT_MODE` selects the adapter.
 
-- `api`: default. Keeps current app behavior available through an API-backed adapter. Report list, report detail, upload, delete, and the patient dashboard report summary now use this service in API mode.
+- `api`: default. Keeps current app behavior available through an API-backed adapter. Report list/detail/upload/delete, parsed observation report detail flows, Review Queue, and the patient dashboard report summary now use this service in API mode.
 - `local`: development prototype using browser `localStorage`.
 
 Future modes may include encrypted local storage, encrypted export/import, and patient-owned cloud vault connectors.
 
 ## API Mode
 
-`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Report list/detail/upload/delete still use the existing backend in this mode, so API mode remains a centralized demo path and can still store report PHI in the backend. Some non-report write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
+`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Report and parsed observation flows still use the existing backend in this mode, so API mode remains a centralized demo path and can still store report PHI, extracted result metadata, and lab values in the backend. Some non-report write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
 
 This mode is a transition adapter, not the target patient-owned storage model.
 
@@ -58,11 +58,12 @@ Recommended migration order:
 
 1. Keep existing pages on current backend APIs.
 2. Move report list/detail/upload/delete and simple report summaries behind `PatientVaultService`. This has started.
-3. Route read-only trend and parsed observation workflows through `PatientVaultService`.
-4. Add encrypted local vault storage.
-5. Move report parsing workflows behind the vault service.
-6. Add encrypted export/import.
-7. Add patient-owned cloud vault connector support.
-8. Add clinician key wrapping and scoped sharing.
+3. Move parsed observation report detail flows and Review Queue behind `PatientVaultService`. This has started.
+4. Route read-only trend workflows through `PatientVaultService`.
+5. Add encrypted local vault storage.
+6. Move report parsing internals fully into the vault service implementation.
+7. Add encrypted export/import.
+8. Add patient-owned cloud vault connector support.
+9. Add clinician key wrapping and scoped sharing.
 
 Until those steps are complete, hosted demos should use synthetic data only.

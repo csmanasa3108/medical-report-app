@@ -8,6 +8,7 @@ import type {
   VaultObservation,
   VaultParsedObservationFilters,
   VaultParsedObservationReviewItem,
+  VaultParsedObservationUpdate,
   VaultReportDocument,
   VaultReportFilters,
   VaultReportUploadMetadata,
@@ -130,6 +131,12 @@ function matchesPatient(patientUserId: string | null, patientId?: string | null)
   return !patientId || patientUserId === patientId;
 }
 
+function localVaultUnsupported(operation: string): Error {
+  return new Error(
+    `${operation} is not implemented for local patient vault mode yet. Local mode is unencrypted and development-only.`
+  );
+}
+
 export class LocalPatientVaultService implements PatientVaultService {
   private readonly storageKey: string;
 
@@ -212,6 +219,16 @@ export class LocalPatientVaultService implements PatientVaultService {
       .sort(byNewestCreatedAt);
   }
 
+  async getParsedObservationsForReport(reportId: string) {
+    return this.listParsedObservations({ reportId });
+  }
+
+  async refreshParsedObservations(
+    _reportId: string
+  ): Promise<VaultParsedObservationReviewItem[]> {
+    throw localVaultUnsupported("refreshParsedObservations");
+  }
+
   async saveParsedObservation(item: VaultParsedObservationReviewItem) {
     const snapshot = this.readSnapshot();
     const timestamp = nowIso();
@@ -230,6 +247,64 @@ export class LocalPatientVaultService implements PatientVaultService {
     );
     this.writeSnapshot(snapshot);
     return itemToSave;
+  }
+
+  async updateParsedObservation(
+    id: string,
+    updates: VaultParsedObservationUpdate
+  ) {
+    const snapshot = this.readSnapshot();
+    const existingItem = snapshot.parsedObservations.find(
+      (item) => item.parsedObservationId === id
+    );
+
+    if (!existingItem) {
+      throw new Error("Parsed observation was not found in the local vault.");
+    }
+
+    const updatedItem: VaultParsedObservationReviewItem = {
+      ...existingItem,
+      testName:
+        updates.rawTestName === undefined
+          ? existingItem.testName
+          : updates.rawTestName,
+      testId:
+        updates.matchedTestId === undefined
+          ? existingItem.testId
+          : updates.matchedTestId,
+      observedAt:
+        updates.observedAt === undefined
+          ? existingItem.observedAt
+          : updates.observedAt,
+      valueText:
+        updates.rawValue === undefined ? existingItem.valueText : updates.rawValue,
+      numericValue:
+        updates.numericValue === undefined
+          ? existingItem.numericValue
+          : updates.numericValue,
+      unit: updates.unit === undefined ? existingItem.unit : updates.unit,
+      referenceRange:
+        updates.referenceRange === undefined
+          ? existingItem.referenceRange
+          : updates.referenceRange,
+      updatedAt: nowIso()
+    };
+
+    snapshot.parsedObservations = upsertBy(
+      snapshot.parsedObservations,
+      updatedItem,
+      (candidate) => candidate.parsedObservationId === id
+    );
+    this.writeSnapshot(snapshot);
+    return updatedItem;
+  }
+
+  async confirmParsedObservation(_id: string): Promise<VaultObservation> {
+    throw localVaultUnsupported("confirmParsedObservation");
+  }
+
+  async rejectParsedObservation(id: string) {
+    return this.updateParsedObservationStatus(id, "REJECTED");
   }
 
   async updateParsedObservationStatus(id: string, status: VaultResourceStatus) {

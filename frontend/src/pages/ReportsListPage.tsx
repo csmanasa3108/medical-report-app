@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   formatLoadErrorMessage,
   getAssignedPatients,
-  getParsedObservationReviewQueue,
   getSelectedAssignedPatientId
 } from "../api/client";
 import type { AssignedPatientResponse, DevUser } from "../api/client";
@@ -306,7 +305,10 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
 
     Promise.allSettled([
       getPatientVaultService().listReports({ patientId: selectedPatientId }),
-      getParsedObservationReviewQueue(selectedPatientId)
+      getPatientVaultService().listParsedObservations({
+        patientId: selectedPatientId,
+        status: "NEEDS_REVIEW"
+      })
     ])
       .then(([reportsResult, reviewResult]) => {
         if (!isCurrent) {

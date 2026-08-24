@@ -5,7 +5,6 @@ import {
   formatLoadErrorMessage,
   getAssignedPatients,
   getAuditEvents,
-  getParsedObservationReviewQueue,
   getPatientClinicianAccess,
   getSelectedAssignedPatientId,
   setSelectedAssignedPatientId
@@ -14,11 +13,13 @@ import type {
   AssignedPatientResponse,
   AuditEventResponse,
   DevUser,
-  ParsedObservationReviewResponse,
   PatientClinicianAccessResponse
 } from "../api/client";
 import { getPatientVaultService } from "../vault";
-import type { VaultReportDocument } from "../vault";
+import type {
+  VaultParsedObservationReviewItem,
+  VaultReportDocument
+} from "../vault";
 
 type DashboardAction = {
   title: string;
@@ -40,7 +41,7 @@ type SummaryCard = {
 
 type PatientDashboardData = {
   reports: VaultReportDocument[];
-  reviewItems: ParsedObservationReviewResponse[];
+  reviewItems: VaultParsedObservationReviewItem[];
   careTeamAccess: PatientClinicianAccessResponse[];
   activityEvents: AuditEventResponse[];
 };
@@ -193,7 +194,7 @@ function getLatestReport(reports: VaultReportDocument[]) {
   })[0];
 }
 
-function getObservationName(observation: ParsedObservationReviewResponse) {
+function getObservationName(observation: VaultParsedObservationReviewItem) {
   return observation.testName || "Parsed observation";
 }
 
@@ -324,7 +325,7 @@ function PatientNeedsReviewPanel({
 }: {
   errorMessage: string;
   isLoading: boolean;
-  reviewItems: ParsedObservationReviewResponse[];
+  reviewItems: VaultParsedObservationReviewItem[];
 }) {
   const visibleItems = reviewItems.slice(0, 4);
 
@@ -360,13 +361,13 @@ function PatientNeedsReviewPanel({
             <Link
               className="dashboard-review-item"
               key={observation.parsedObservationId}
-              title={observation.reportOriginalFilename}
-              to={`/reports/${observation.reportId}`}
+              title={observation.reportOriginalFilename ?? undefined}
+              to={observation.reportId ? `/reports/${observation.reportId}` : "/review"}
             >
               <span>
                 <strong>{getObservationName(observation)}</strong>
                 <small className="text-truncate">
-                  {observation.reportOriginalFilename}
+                  {observation.reportOriginalFilename ?? "Source report unavailable"}
                 </small>
               </span>
               <span>{formatOptionalDate(observation.observedAt)}</span>
@@ -480,7 +481,9 @@ function PatientDashboard() {
 
     Promise.allSettled([
       getPatientVaultService().listReports(),
-      getParsedObservationReviewQueue(),
+      getPatientVaultService().listParsedObservations({
+        status: "NEEDS_REVIEW"
+      }),
       getPatientClinicianAccess(),
       getAuditEvents()
     ])

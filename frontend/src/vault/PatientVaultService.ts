@@ -7,6 +7,7 @@ import type {
   VaultObservation,
   VaultParsedObservationFilters,
   VaultParsedObservationReviewItem,
+  VaultParsedObservationUpdate,
   VaultReportDocument,
   VaultReportFilters,
   VaultReportUploadMetadata,
@@ -29,9 +30,21 @@ export type PatientVaultService = {
   listParsedObservations(
     filters?: VaultParsedObservationFilters
   ): Promise<VaultParsedObservationReviewItem[]>;
+  getParsedObservationsForReport(
+    reportId: string
+  ): Promise<VaultParsedObservationReviewItem[]>;
+  refreshParsedObservations(
+    reportId: string
+  ): Promise<VaultParsedObservationReviewItem[]>;
   saveParsedObservation(
     item: VaultParsedObservationReviewItem
   ): Promise<VaultParsedObservationReviewItem>;
+  updateParsedObservation(
+    id: string,
+    updates: VaultParsedObservationUpdate
+  ): Promise<VaultParsedObservationReviewItem>;
+  confirmParsedObservation(id: string): Promise<VaultObservation>;
+  rejectParsedObservation(id: string): Promise<VaultParsedObservationReviewItem>;
   updateParsedObservationStatus(
     id: string,
     status: VaultResourceStatus

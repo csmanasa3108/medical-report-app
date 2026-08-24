@@ -8,7 +8,9 @@ import {
   getParsedObservations,
   getReport as getBackendReport,
   getReports,
+  parseReportObservations,
   rejectParsedObservation,
+  updateParsedObservation as updateBackendParsedObservation,
   uploadReport as uploadBackendReport
 } from "../api/client";
 import type {
@@ -17,7 +19,8 @@ import type {
   LabTrendPointResponse,
   ParsedObservationResponse,
   ParsedObservationReviewResponse,
-  ReportResponse
+  ReportResponse,
+  UpdateParsedObservationRequest
 } from "../api/client";
 import type { PatientVaultService } from "./PatientVaultService";
 import type {
@@ -29,6 +32,7 @@ import type {
   VaultObservation,
   VaultParsedObservationFilters,
   VaultParsedObservationReviewItem,
+  VaultParsedObservationUpdate,
   VaultReportDocument,
   VaultReportFilters,
   VaultReportUploadMetadata,
@@ -152,6 +156,52 @@ function mapConfirmedObservationToReviewItem(
   };
 }
 
+function mapLabObservationResponse(
+  observation: LabObservationResponse
+): VaultObservation {
+  const timestamp = nowIso();
+
+  return {
+    resourceType: "Observation",
+    observationId: observation.id,
+    patientUserId: null,
+    testId: observation.testId,
+    testName: observation.testName,
+    observedAt: observation.observedAt,
+    valueText: String(observation.numericValue),
+    numericValue: observation.numericValue,
+    unit: observation.unit,
+    referenceRange:
+      observation.referenceLow !== null && observation.referenceHigh !== null
+        ? `${observation.referenceLow} - ${observation.referenceHigh}`
+        : null,
+    abnormalFlag: observation.abnormalFlag,
+    status: "CONFIRMED",
+    sourceType: "REPORT",
+    reportId: null,
+    reportOriginalFilename: null,
+    labName: null,
+    reportDate: null,
+    parsedObservationId: null,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+}
+
+function mapParsedObservationUpdate(
+  updates: VaultParsedObservationUpdate
+): UpdateParsedObservationRequest {
+  return {
+    rawTestName: updates.rawTestName ?? null,
+    matchedTestId: updates.matchedTestId ?? null,
+    observedAt: updates.observedAt ?? null,
+    rawValue: updates.rawValue ?? null,
+    numericValue: updates.numericValue ?? null,
+    unit: updates.unit ?? null,
+    referenceRange: updates.referenceRange ?? null
+  };
+}
+
 function mapTrendPoint(
   testId: string,
   testName: string,
@@ -261,10 +311,12 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
 
   async listParsedObservations(filters: VaultParsedObservationFilters = {}) {
     if (filters.reportId) {
-      const observations = await getParsedObservations(filters.reportId);
-      return observations
-        .map((item) => mapReportParsedObservation(item, filters.reportId ?? ""))
-        .filter((item) => !filters.status || item.status === filters.status);
+      return this.getParsedObservationsForReport(filters.reportId).then(
+        (observations) =>
+          observations.filter(
+            (item) => !filters.status || item.status === filters.status
+          )
+      );
     }
 
     const reviewItems = await getParsedObservationReviewQueue(
@@ -274,10 +326,62 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
     return reviewItems.map(mapReviewResponse);
   }
 
+  async getParsedObservationsForReport(reportId: string) {
+    const observations = await getParsedObservations(reportId);
+    return observations.map((item) => mapReportParsedObservation(item, reportId));
+  }
+
+  async refreshParsedObservations(reportId: string) {
+    await parseReportObservations(reportId);
+    return this.getParsedObservationsForReport(reportId);
+  }
+
   async saveParsedObservation(
     _item: VaultParsedObservationReviewItem
   ): Promise<VaultParsedObservationReviewItem> {
     throw unsupported("saveParsedObservation");
+  }
+
+  async updateParsedObservation(
+    id: string,
+    updates: VaultParsedObservationUpdate
+  ) {
+    await updateBackendParsedObservation(id, mapParsedObservationUpdate(updates));
+
+    return {
+      resourceType: "ParsedObservationReviewItem" as const,
+      parsedObservationId: id,
+      patientUserId: null,
+      reportId: null,
+      reportOriginalFilename: null,
+      labName: null,
+      reportDate: null,
+      testId: updates.matchedTestId ?? null,
+      testName: updates.rawTestName ?? null,
+      observedAt: updates.observedAt ?? null,
+      valueText: updates.rawValue ?? null,
+      numericValue: updates.numericValue ?? null,
+      unit: updates.unit ?? null,
+      referenceRange: updates.referenceRange ?? null,
+      abnormalFlag: null,
+      status: "NEEDS_REVIEW",
+      confirmedObservationId: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+  }
+
+  async confirmParsedObservation(id: string) {
+    const observation = await confirmParsedObservation(id);
+    return {
+      ...mapLabObservationResponse(observation),
+      parsedObservationId: id
+    };
+  }
+
+  async rejectParsedObservation(id: string) {
+    const rejectedItem = await rejectParsedObservation(id);
+    return mapReviewResponse(rejectedItem);
   }
 
   async updateParsedObservationStatus(id: string, status: VaultResourceStatus) {

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  confirmParsedObservation,
   formatLoadErrorMessage,
-  getParsedObservationReviewQueue,
-  getSelectedAssignedPatientId,
-  rejectParsedObservation
+  getSelectedAssignedPatientId
 } from "../api/client";
-import type { DevUser, ParsedObservationReviewResponse } from "../api/client";
+import type { DevUser } from "../api/client";
+import { getPatientVaultService } from "../vault";
+import type { VaultParsedObservationReviewItem } from "../vault";
 
 type ReviewQueuePageProps = {
   devUser: DevUser;
@@ -39,7 +38,7 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function formatExtractedValue(observation: ParsedObservationReviewResponse) {
+function formatExtractedValue(observation: VaultParsedObservationReviewItem) {
   if (observation.valueText?.trim()) {
     return observation.valueText;
   }
@@ -189,7 +188,7 @@ function ReviewObservationCard({
 }: {
   isAnyActionRunning: boolean;
   isPatient: boolean;
-  observation: ParsedObservationReviewResponse;
+  observation: VaultParsedObservationReviewItem;
   onConfirm: (parsedObservationId: string) => void;
   onReject: (parsedObservationId: string) => void;
   runningActionId: string | null;
@@ -293,7 +292,7 @@ function ReviewObservationCard({
 
 function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
   const [observations, setObservations] = useState<
-    ParsedObservationReviewResponse[]
+    VaultParsedObservationReviewItem[]
   >([]);
   const [selectedStatus, setSelectedStatus] =
     useState<ReviewStatus>("NEEDS_REVIEW");
@@ -320,7 +319,11 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
       };
     }
 
-    getParsedObservationReviewQueue(selectedPatientId, selectedStatus)
+    getPatientVaultService()
+      .listParsedObservations({
+        patientId: selectedPatientId,
+        status: selectedStatus
+      })
       .then((reviewQueue) => {
         if (isCurrent) {
           setObservations(reviewQueue);
@@ -349,10 +352,10 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
   useEffect(() => loadReviewQueue(), [loadReviewQueue]);
 
   async function refreshReviewQueue() {
-    const reviewQueue = await getParsedObservationReviewQueue(
-      selectedPatientId,
-      selectedStatus
-    );
+    const reviewQueue = await getPatientVaultService().listParsedObservations({
+      patientId: selectedPatientId,
+      status: selectedStatus
+    });
     setObservations(reviewQueue);
   }
 
@@ -362,7 +365,9 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
     setSuccessMessage("");
 
     try {
-      await confirmParsedObservation(parsedObservationId);
+      await getPatientVaultService().confirmParsedObservation(
+        parsedObservationId
+      );
       await refreshReviewQueue();
       setSuccessMessage("Result confirmed.");
     } catch (error: unknown) {
@@ -380,7 +385,7 @@ function ReviewQueuePage({ devUser }: ReviewQueuePageProps) {
     setSuccessMessage("");
 
     try {
-      await rejectParsedObservation(parsedObservationId);
+      await getPatientVaultService().rejectParsedObservation(parsedObservationId);
       await refreshReviewQueue();
       setSuccessMessage("Result rejected.");
     } catch (error: unknown) {

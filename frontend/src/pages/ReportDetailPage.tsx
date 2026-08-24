@@ -1,21 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  confirmParsedObservation,
   formatLoadErrorMessage,
-  getParsedObservations,
   getTests,
-  parseReportObservations,
-  ParsedObservationResponse,
-  rejectParsedObservation,
-  TestCatalogResponse,
-  updateParsedObservation,
-  UpdateParsedObservationRequest
+  TestCatalogResponse
 } from "../api/client";
 import type { DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import { getPatientVaultService } from "../vault";
-import type { VaultReportDocument } from "../vault";
+import type {
+  VaultParsedObservationReviewItem,
+  VaultParsedObservationUpdate,
+  VaultReportDocument
+} from "../vault";
 
 type ParsedObservationEditForm = {
   rawTestName: string;
@@ -86,7 +83,7 @@ function getReportTitle(filename: string) {
 }
 
 function getParsedObservationCounts(
-  parsedObservations: ParsedObservationResponse[]
+  parsedObservations: VaultParsedObservationReviewItem[]
 ) {
   return parsedObservations.reduce(
     (counts, observation) => {
@@ -108,7 +105,7 @@ function getParsedObservationCounts(
   );
 }
 
-function formatParsedValue(observation: ParsedObservationResponse) {
+function formatParsedValue(observation: VaultParsedObservationReviewItem) {
   if (observation.numericValue === null || observation.numericValue === undefined) {
     return formatOptionalValue(observation.numericValue);
   }
@@ -120,11 +117,11 @@ function formatParsedValue(observation: ParsedObservationResponse) {
   return observation.unit ? `${formattedValue} ${observation.unit}` : formattedValue;
 }
 
-function canConfirmParsedObservation(observation: ParsedObservationResponse) {
+function canConfirmParsedObservation(observation: VaultParsedObservationReviewItem) {
   return (
     observation.status === "NEEDS_REVIEW" &&
-    Boolean(observation.id) &&
-    Boolean(observation.matchedTestId) &&
+    Boolean(observation.parsedObservationId) &&
+    Boolean(observation.testId) &&
     observation.numericValue !== null &&
     observation.numericValue !== undefined
   );
@@ -146,13 +143,13 @@ function findMatchedTest(
 }
 
 function toEditForm(
-  observation: ParsedObservationResponse
+  observation: VaultParsedObservationReviewItem
 ): ParsedObservationEditForm {
   return {
-    rawTestName: observation.rawTestName ?? "",
-    matchedTestId: observation.matchedTestId ?? "",
+    rawTestName: observation.testName ?? "",
+    matchedTestId: observation.testId ?? "",
     observedAt: observation.observedAt ?? "",
-    rawValue: observation.rawValue ?? "",
+    rawValue: observation.valueText ?? "",
     numericValue:
       observation.numericValue === null || observation.numericValue === undefined
         ? ""
@@ -169,7 +166,7 @@ function blankToNull(value: string) {
 
 function buildUpdatePayload(
   form: ParsedObservationEditForm
-): UpdateParsedObservationRequest | null {
+): VaultParsedObservationUpdate | null {
   const numericValue =
     form.numericValue.trim() === "" ? null : Number(form.numericValue);
 
@@ -194,7 +191,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const navigate = useNavigate();
   const [report, setReport] = useState<VaultReportDocument | null>(null);
   const [parsedObservations, setParsedObservations] = useState<
-    ParsedObservationResponse[]
+    VaultParsedObservationReviewItem[]
   >([]);
   const [tests, setTests] = useState<TestCatalogResponse[]>([]);
   const [isTestsLoading, setIsTestsLoading] = useState(true);
@@ -250,7 +247,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
 
     Promise.all([
       getPatientVaultService().getReport(reportId),
-      getParsedObservations(reportId)
+      getPatientVaultService().getParsedObservationsForReport(reportId)
     ])
       .then(([reportResponse, parsedObservationList]) => {
         if (!isCurrent) {
@@ -325,7 +322,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
 
     const [reportResponse, parsedObservationList] = await Promise.all([
       getPatientVaultService().getReport(reportId),
-      getParsedObservations(reportId)
+      getPatientVaultService().getParsedObservationsForReport(reportId)
     ]);
 
     if (!reportResponse) {
@@ -336,14 +333,16 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setParsedObservations(parsedObservationList);
   }
 
-  function handleEditParsedObservation(observation: ParsedObservationResponse) {
-    if (!observation.id || observation.status === "CONFIRMED") {
+  function handleEditParsedObservation(
+    observation: VaultParsedObservationReviewItem
+  ) {
+    if (!observation.parsedObservationId || observation.status === "CONFIRMED") {
       return;
     }
 
     setParsedErrorMessage("");
     setActionMessage("");
-    setEditingObservationId(observation.id);
+    setEditingObservationId(observation.parsedObservationId);
     setEditForm(toEditForm(observation));
   }
 
@@ -376,7 +375,10 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setSavingObservationId(parsedObservationId);
 
     try {
-      await updateParsedObservation(parsedObservationId, payload);
+      await getPatientVaultService().updateParsedObservation(
+        parsedObservationId,
+        payload
+      );
       await refreshReportAndParsedObservations();
       setEditingObservationId(null);
       setActionMessage("Parsed observation updated.");
@@ -402,8 +404,9 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setActionMessage("");
 
     try {
-      await parseReportObservations(reportId);
-      await refreshReportAndParsedObservations();
+      const refreshedObservations =
+        await getPatientVaultService().refreshParsedObservations(reportId);
+      setParsedObservations(refreshedObservations);
       setActionMessage("Parsed observations refreshed.");
     } catch (error: unknown) {
       setParsedErrorMessage(
@@ -423,7 +426,9 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setActionMessage("");
 
     try {
-      await confirmParsedObservation(parsedObservationId);
+      await getPatientVaultService().confirmParsedObservation(
+        parsedObservationId
+      );
       await refreshReportAndParsedObservations();
       setActionMessage("Parsed observation confirmed.");
     } catch (error: unknown) {
@@ -443,7 +448,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setActionMessage("");
 
     try {
-      await rejectParsedObservation(parsedObservationId);
+      await getPatientVaultService().rejectParsedObservation(parsedObservationId);
       await refreshReportAndParsedObservations();
       setActionMessage("Parsed observation rejected.");
     } catch (error: unknown) {
@@ -695,34 +700,45 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
               <div className="parsed-observation-card-list">
                 {parsedObservations.map((observation, index) => {
                     const rowKey =
-                      observation.id ?? `${observation.rawTestName}-${index}`;
+                      observation.parsedObservationId ??
+                      `${observation.testName}-${index}`;
                     const matchedTest = findMatchedTest(
                       tests,
-                      observation.matchedTestId
+                      observation.testId
                     );
                     const isConfirmable =
                       canConfirmParsedObservation(observation);
                     const isConfirming =
-                      observation.id === confirmingObservationId;
+                      observation.parsedObservationId === confirmingObservationId;
                     const isRejecting =
-                      observation.id === rejectingObservationId;
+                      observation.parsedObservationId === rejectingObservationId;
                     const isConfirmed = observation.status === "CONFIRMED";
                     const isReviewable = observation.status === "NEEDS_REVIEW";
-                    const isEditing = observation.id === editingObservationId;
+                    const isEditing =
+                      observation.parsedObservationId === editingObservationId;
                     const canEdit =
-                      !isClinician && Boolean(observation.id) && isReviewable;
+                      !isClinician &&
+                      Boolean(observation.parsedObservationId) &&
+                      isReviewable;
                     const canReject =
-                      !isClinician && Boolean(observation.id) && isReviewable;
-                    const isSaving = observation.id === savingObservationId;
+                      !isClinician &&
+                      Boolean(observation.parsedObservationId) &&
+                      isReviewable;
+                    const isSaving =
+                      observation.parsedObservationId === savingObservationId;
                     const selectedMatchedTestExists =
                       editForm.matchedTestId === "" ||
                       tests.some((test) => test.id === editForm.matchedTestId);
                     const hasActionPanel =
-                      Boolean(isEditing && observation.id) ||
+                      Boolean(isEditing && observation.parsedObservationId) ||
                       isClinician ||
                       canEdit ||
-                      Boolean(!isClinician && isConfirmable && observation.id) ||
-                      Boolean(canReject && observation.id);
+                      Boolean(
+                        !isClinician &&
+                          isConfirmable &&
+                          observation.parsedObservationId
+                      ) ||
+                      Boolean(canReject && observation.parsedObservationId);
 
                     return (
                       <article
@@ -743,13 +759,13 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                               <p className="eyebrow">Observation</p>
                               <h4>
                                 {matchedTest?.displayName ??
-                                  formatOptionalValue(observation.rawTestName)}
+                                  formatOptionalValue(observation.testName)}
                               </h4>
                             </div>
                             <StatusBadge status={observation.status} />
                           </div>
 
-                          {isEditing && observation.id ? (
+                          {isEditing && observation.parsedObservationId ? (
                             <div className="parsed-observation-edit-grid">
                               <label>
                                 <span>Raw test name</span>
@@ -865,7 +881,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                               <div>
                                 <dt>Test name</dt>
                                 <dd>
-                                  {formatOptionalValue(observation.rawTestName)}
+                                  {formatOptionalValue(observation.testName)}
                                 </dd>
                               </div>
                               <div>
@@ -875,7 +891,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                               <div>
                                 <dt>Raw value</dt>
                                 <dd>
-                                  {formatOptionalValue(observation.rawValue)}
+                                  {formatOptionalValue(observation.valueText)}
                                 </dd>
                               </div>
                               <div>
@@ -893,10 +909,10 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                               <div>
                                 <dt>Matched test</dt>
                                 <dd>
-                                  {observation.matchedTestId ? (
+                                  {observation.testId ? (
                                     <span
                                       className="matched-test-cell"
-                                      title={observation.matchedTestId}
+                                      title={observation.testId}
                                     >
                                       <span className="matched-test-name">
                                         {matchedTest?.displayName ??
@@ -905,7 +921,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                                       <span className="muted-id">
                                         ID{" "}
                                         {formatShortId(
-                                          observation.matchedTestId
+                                          observation.testId
                                         )}
                                       </span>
                                     </span>
@@ -920,13 +936,15 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
 
                         {hasActionPanel ? (
                           <aside className="parsed-observation-card-actions">
-                            {isEditing && observation.id ? (
+                            {isEditing && observation.parsedObservationId ? (
                               <>
                                 <button
                                   className="action-button"
                                   type="button"
                                   onClick={() =>
-                                    handleSaveParsedObservation(observation.id!)
+                                    handleSaveParsedObservation(
+                                      observation.parsedObservationId
+                                    )
                                   }
                                   disabled={isActionRunning}
                                 >
@@ -965,13 +983,13 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                                 ) : null}
                                 {!isClinician &&
                                 isConfirmable &&
-                                observation.id ? (
+                                observation.parsedObservationId ? (
                                   <button
                                     className="action-button"
                                     type="button"
                                     onClick={() =>
                                       handleConfirmParsedObservation(
-                                        observation.id!
+                                        observation.parsedObservationId
                                       )
                                     }
                                     disabled={isActionRunning}
@@ -979,13 +997,13 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                                     {isConfirming ? "Confirming..." : "Confirm"}
                                   </button>
                                 ) : null}
-                                {canReject && observation.id ? (
+                                {canReject && observation.parsedObservationId ? (
                                   <button
                                     className="action-button secondary danger"
                                     type="button"
                                     onClick={() =>
                                       handleRejectParsedObservation(
-                                        observation.id!
+                                        observation.parsedObservationId
                                       )
                                     }
                                     disabled={isActionRunning}

@@ -120,6 +120,16 @@ export type VaultParsedObservationReviewItem = {
   updatedAt: string;
 };
 
+export type VaultParsedObservationUpdate = {
+  rawTestName?: string | null;
+  matchedTestId?: string | null;
+  observedAt?: string | null;
+  rawValue?: string | null;
+  numericValue?: number | null;
+  unit?: string | null;
+  referenceRange?: string | null;
+};
+
 export type VaultAuditEvent = {
   resourceType: "AuditEvent";
   auditEventId: string;

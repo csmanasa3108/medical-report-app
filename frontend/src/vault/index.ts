@@ -16,6 +16,7 @@ export type {
   VaultObservation,
   VaultParsedObservationFilters,
   VaultParsedObservationReviewItem,
+  VaultParsedObservationUpdate,
   VaultReportDocument,
   VaultReportFilters,
   VaultReportUploadMetadata,
