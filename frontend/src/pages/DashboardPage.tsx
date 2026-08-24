@@ -503,7 +503,9 @@ function PatientDashboard() {
       getPatientVaultService().listParsedObservations({
         status: "NEEDS_REVIEW"
       }),
-      getPatientClinicianAccess(),
+      isLocalVaultMode
+        ? Promise.resolve([] as PatientClinicianAccessResponse[])
+        : getPatientClinicianAccess(),
       getPatientVaultService().listAuditEvents()
     ])
       .then(([reportsResult, reviewResult, careTeamResult, activityResult]) => {
@@ -563,7 +565,7 @@ function PatientDashboard() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [isLocalVaultMode]);
 
   return (
     <section className="dashboard-page">

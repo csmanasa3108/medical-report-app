@@ -7,6 +7,7 @@ import {
 } from "../api/client";
 import type { DevUser, PatientClinicianAccessResponse } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
+import { getPatientVaultMode } from "../vault/config";
 
 type CareTeamPageProps = {
   devUser: DevUser;
@@ -44,11 +45,12 @@ function CareTeamPage({ devUser }: CareTeamPageProps) {
   const [successMessage, setSuccessMessage] = useState("");
 
   const isPatient = devUser.role === "PATIENT";
+  const isLocalVaultMode = getPatientVaultMode() === "local";
 
   useEffect(() => {
     let isCurrent = true;
 
-    if (!isPatient) {
+    if (!isPatient || isLocalVaultMode) {
       setClinicianAccess([]);
       setIsLoading(false);
       return () => {
@@ -84,7 +86,7 @@ function CareTeamPage({ devUser }: CareTeamPageProps) {
     return () => {
       isCurrent = false;
     };
-  }, [isPatient]);
+  }, [isPatient, isLocalVaultMode]);
 
   async function refreshAccessList() {
     const accessRows = await getPatientClinicianAccess();
@@ -159,6 +161,20 @@ function CareTeamPage({ devUser }: CareTeamPageProps) {
         <p className="page-description">
           Care Team sharing controls are available only in the patient
           development view.
+        </p>
+      </section>
+    );
+  }
+
+  if (isLocalVaultMode) {
+    return (
+      <section className="page-section">
+        <p className="eyebrow">Sharing</p>
+        <h2 className="page-title">Care Team</h2>
+        <p className="page-description">
+          Care Team sharing is an API demo feature. The frontend-only local
+          vault demo stores data in this browser and does not require the
+          backend.
         </p>
       </section>
     );

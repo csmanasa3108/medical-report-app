@@ -289,6 +289,14 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   useEffect(() => {
     let isCurrent = true;
 
+    if (isLocalVaultMode) {
+      setTests([]);
+      setIsTestsLoading(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
     setIsTestsLoading(true);
 
     getTests()
@@ -315,7 +323,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [isLocalVaultMode]);
 
   async function refreshReportAndParsedObservations() {
     if (!reportId) {
