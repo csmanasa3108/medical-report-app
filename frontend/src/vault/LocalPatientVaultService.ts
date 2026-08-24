@@ -17,6 +17,7 @@ import type {
   SerializedPatientVault,
   VaultAuditEvent,
   VaultAuditEventFilters,
+  VaultConfirmedObservationUpdate,
   VaultConfirmedObservationFilters,
   VaultObservation,
   VaultParsedObservationFilters,
@@ -500,6 +501,65 @@ export class LocalPatientVaultService implements PatientVaultService {
     return observationToSave;
   }
 
+  async updateConfirmedObservation(
+    observationId: string,
+    updates: VaultConfirmedObservationUpdate
+  ) {
+    const snapshot = this.readSnapshot();
+    const existingObservation = snapshot.confirmedObservations.find(
+      (observation) => observation.observationId === observationId
+    );
+
+    if (!existingObservation) {
+      throw new Error("Observation was not found in the local vault.");
+    }
+
+    if (existingObservation.sourceType !== "MANUAL") {
+      throw new Error("Only manual observations can be edited in local vault mode.");
+    }
+
+    const updatedObservation: VaultObservation = {
+      ...existingObservation,
+      ...updates,
+      status: "CONFIRMED",
+      sourceType: "MANUAL",
+      reportId: null,
+      reportOriginalFilename: null,
+      labName: null,
+      reportDate: null,
+      parsedObservationId: null,
+      updatedAt: nowIso()
+    };
+
+    snapshot.confirmedObservations = upsertBy(
+      snapshot.confirmedObservations,
+      updatedObservation,
+      (candidate) => candidate.observationId === observationId
+    );
+    await this.writeSnapshot(snapshot);
+    return updatedObservation;
+  }
+
+  async deleteConfirmedObservation(observationId: string) {
+    const snapshot = this.readSnapshot();
+    const existingObservation = snapshot.confirmedObservations.find(
+      (observation) => observation.observationId === observationId
+    );
+
+    if (!existingObservation) {
+      throw new Error("Observation was not found in the local vault.");
+    }
+
+    if (existingObservation.sourceType !== "MANUAL") {
+      throw new Error("Only manual observations can be deleted in local vault mode.");
+    }
+
+    snapshot.confirmedObservations = snapshot.confirmedObservations.filter(
+      (observation) => observation.observationId !== observationId
+    );
+    await this.writeSnapshot(snapshot);
+  }
+
   async listTrendPoints(testId: string, filters: VaultTrendFilters = {}) {
     const snapshot = this.readSnapshot();
 
@@ -683,6 +743,8 @@ function mapObservationToTrendPoint(
     reportId: observation.reportId,
     reportOriginalFilename: observation.reportOriginalFilename,
     labName: observation.labName,
-    reportDate: observation.reportDate
+    reportDate: observation.reportDate,
+    referenceRange: observation.referenceRange,
+    abnormalFlag: observation.abnormalFlag
   };
 }

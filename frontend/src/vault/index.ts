@@ -11,6 +11,7 @@ export type {
   SerializedPatientVault,
   VaultAuditEvent,
   VaultAuditEventFilters,
+  VaultConfirmedObservationUpdate,
   VaultConfirmedObservationFilters,
   VaultDiagnosticReport,
   VaultObservation,

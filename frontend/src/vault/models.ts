@@ -98,6 +98,20 @@ export type VaultObservation = {
   updatedAt: string;
 };
 
+export type VaultConfirmedObservationUpdate = Partial<
+  Pick<
+    VaultObservation,
+    | "testId"
+    | "testName"
+    | "observedAt"
+    | "valueText"
+    | "numericValue"
+    | "unit"
+    | "referenceRange"
+    | "abnormalFlag"
+  >
+>;
+
 export type VaultParsedObservationReviewItem = {
   resourceType: "ParsedObservationReviewItem";
   parsedObservationId: string;
@@ -158,6 +172,8 @@ export type VaultTrendPoint = {
   reportOriginalFilename: string | null;
   labName: string | null;
   reportDate: string | null;
+  referenceRange?: string | null;
+  abnormalFlag?: string | null;
 };
 
 export type VaultTrendTest = {

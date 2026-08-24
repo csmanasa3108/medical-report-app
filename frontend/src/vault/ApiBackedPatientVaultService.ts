@@ -30,6 +30,7 @@ import type {
   SerializedPatientVault,
   VaultAuditEvent,
   VaultAuditEventFilters,
+  VaultConfirmedObservationUpdate,
   VaultConfirmedObservationFilters,
   VaultObservation,
   VaultParsedObservationFilters,
@@ -515,6 +516,17 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
     _observation: VaultObservation
   ): Promise<VaultObservation> {
     throw unsupported("saveConfirmedObservation");
+  }
+
+  async updateConfirmedObservation(
+    _observationId: string,
+    _updates: VaultConfirmedObservationUpdate
+  ): Promise<VaultObservation> {
+    throw unsupported("updateConfirmedObservation");
+  }
+
+  async deleteConfirmedObservation(_observationId: string): Promise<void> {
+    throw unsupported("deleteConfirmedObservation");
   }
 
   async listTrendPoints(testId: string, filters: VaultTrendFilters = {}) {

@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   formatLoadErrorMessage,
   getAssignedPatients,
+  getCurrentDevUser,
   getSelectedAssignedPatientId
 } from "../api/client";
 import type { AssignedPatientResponse, DevUser } from "../api/client";
 import { getPatientVaultService } from "../vault";
+import { getPatientVaultMode } from "../vault/config";
 import type { VaultTrend, VaultTrendPoint, VaultTrendTest } from "../vault";
 
 type TrendPageProps = {
@@ -14,6 +17,9 @@ type TrendPageProps = {
 };
 
 type ChartPoint = {
+  observationId: string | null;
+  testId: string;
+  testName: string;
   observedAt: string;
   numericValue: number;
   unit: string;
@@ -23,10 +29,30 @@ type ChartPoint = {
   labName: string | null;
   reportDate: string | null;
   parsedObservationId: string | null;
+  referenceRange: string | null;
+  abnormalFlag: string | null;
 };
 
 type Summary = {
   latestValue: number | null;
+};
+
+type ManualObservationEditForm = {
+  testName: string;
+  observedAt: string;
+  numericValue: string;
+  unit: string;
+  referenceRange: string;
+  abnormalFlag: string;
+};
+
+const initialManualObservationEditForm: ManualObservationEditForm = {
+  testName: "",
+  observedAt: "",
+  numericValue: "",
+  unit: "",
+  referenceRange: "",
+  abnormalFlag: "NORMAL"
 };
 
 function getCatalogTestName(test: VaultTrendTest | undefined) {
@@ -146,6 +172,9 @@ function toChartPoint(point: VaultTrendPoint, fallbackUnit: string): ChartPoint 
   }
 
   return {
+    observationId: point.observationId ?? null,
+    testId: point.testId,
+    testName: point.testName,
     observedAt,
     numericValue,
     unit: point.unit ?? fallbackUnit,
@@ -154,7 +183,9 @@ function toChartPoint(point: VaultTrendPoint, fallbackUnit: string): ChartPoint 
     reportOriginalFilename: point.reportOriginalFilename ?? null,
     labName: point.labName ?? null,
     reportDate: point.reportDate ?? null,
-    parsedObservationId: point.parsedObservationId ?? null
+    parsedObservationId: point.parsedObservationId ?? null,
+    referenceRange: point.referenceRange ?? null,
+    abnormalFlag: point.abnormalFlag ?? null
   };
 }
 
@@ -244,7 +275,23 @@ function TrendLineChart({ points, unit }: { points: ChartPoint[]; unit: string }
   );
 }
 
-function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fallbackUnit: string }) {
+function TrendPointsTable({
+  canManageManualObservations,
+  editPanel,
+  fallbackUnit,
+  isManualObservationMutating,
+  onDeleteManualObservation,
+  onEditManualObservation,
+  points
+}: {
+  canManageManualObservations: boolean;
+  editPanel: ReactNode;
+  fallbackUnit: string;
+  isManualObservationMutating: boolean;
+  onDeleteManualObservation(point: ChartPoint): void;
+  onEditManualObservation(point: ChartPoint): void;
+  points: ChartPoint[];
+}) {
   return (
     <section className="trend-points-section" aria-labelledby="trend-points-title">
       <div className="trend-points-header">
@@ -253,6 +300,7 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
           <h3 id="trend-points-title">Trend points</h3>
         </div>
       </div>
+      {editPanel}
       <div className="table-scroll">
         <table className="reports-table trend-points-table">
           <thead>
@@ -301,7 +349,28 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
                   <td>{point.labName || "Not provided"}</td>
                   <td>{formatDate(point.reportDate)}</td>
                   <td>
-                    {point.reportId ? (
+                    {canManageManualObservations &&
+                    sourceType === "MANUAL" &&
+                    point.observationId ? (
+                      <div className="table-action-group">
+                        <button
+                          className="action-button secondary table-action-button"
+                          type="button"
+                          disabled={isManualObservationMutating}
+                          onClick={() => onEditManualObservation(point)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="action-button secondary danger table-action-button"
+                          type="button"
+                          disabled={isManualObservationMutating}
+                          onClick={() => onDeleteManualObservation(point)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : point.reportId ? (
                       <Link
                         className="button-link secondary table-action-button"
                         to={`/reports/${point.reportId}`}
@@ -322,6 +391,112 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
   );
 }
 
+function ManualObservationEditPanel({
+  form,
+  isSaving,
+  onCancel,
+  onChange,
+  onSave,
+  panelRef
+}: {
+  form: ManualObservationEditForm;
+  isSaving: boolean;
+  onCancel(): void;
+  onChange(field: keyof ManualObservationEditForm, value: string): void;
+  onSave(): void;
+  panelRef: RefObject<HTMLElement | null>;
+}) {
+  return (
+    <section className="manual-observation-edit-panel" ref={panelRef}>
+      <div className="trend-points-header">
+        <div>
+          <p className="eyebrow">Manual observation</p>
+          <h3>Edit trend point</h3>
+        </div>
+      </div>
+      <div className="manual-observation-edit-grid">
+        <label>
+          <span>Test name</span>
+          <input
+            className="table-input"
+            type="text"
+            value={form.testName}
+            onChange={(event) => onChange("testName", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Observed date</span>
+          <input
+            className="table-input"
+            type="date"
+            value={form.observedAt}
+            onChange={(event) => onChange("observedAt", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Value</span>
+          <input
+            className="table-input"
+            type="number"
+            step="any"
+            value={form.numericValue}
+            onChange={(event) => onChange("numericValue", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Unit</span>
+          <input
+            className="table-input"
+            type="text"
+            value={form.unit}
+            onChange={(event) => onChange("unit", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Reference range</span>
+          <input
+            className="table-input"
+            type="text"
+            value={form.referenceRange}
+            onChange={(event) => onChange("referenceRange", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Abnormal flag</span>
+          <select
+            className="table-input"
+            value={form.abnormalFlag}
+            onChange={(event) => onChange("abnormalFlag", event.target.value)}
+          >
+            <option value="NORMAL">Normal</option>
+            <option value="LOW">Low</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </label>
+      </div>
+      <div className="message-actions">
+        <button
+          className="action-button"
+          type="button"
+          disabled={isSaving}
+          onClick={onSave}
+        >
+          {isSaving ? "Saving..." : "Save changes"}
+        </button>
+        <button
+          className="action-button secondary"
+          type="button"
+          disabled={isSaving}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function TrendPage({ devUser }: TrendPageProps) {
   const { testId } = useParams();
   const [trend, setTrend] = useState<VaultTrend | null>(null);
@@ -334,7 +509,19 @@ function TrendPage({ devUser }: TrendPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [patientContextErrorMessage, setPatientContextErrorMessage] =
     useState("");
+  const [trendActionMessage, setTrendActionMessage] = useState("");
+  const [trendActionErrorMessage, setTrendActionErrorMessage] = useState("");
+  const [editingPoint, setEditingPoint] = useState<ChartPoint | null>(null);
+  const [manualEditForm, setManualEditForm] =
+    useState<ManualObservationEditForm>(initialManualObservationEditForm);
+  const [isSavingManualObservation, setIsSavingManualObservation] =
+    useState(false);
+  const [isDeletingManualObservation, setIsDeletingManualObservation] =
+    useState(false);
+  const editPanelRef = useRef<HTMLElement | null>(null);
   const isClinician = devUser.role === "CLINICIAN";
+  const isLocalVaultMode = getPatientVaultMode() === "local";
+  const canManageManualObservations = isLocalVaultMode && !isClinician;
   const selectedPatientId = isClinician ? getSelectedAssignedPatientId() : null;
   const selectedPatient =
     assignedPatients.find((patient) => patient.patientId === selectedPatientId) ??
@@ -381,6 +568,15 @@ function TrendPage({ devUser }: TrendPageProps) {
   }, [isClinician]);
 
   useEffect(() => {
+    if (editingPoint) {
+      editPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest"
+      });
+    }
+  }, [editingPoint]);
+
+  useEffect(() => {
     let isCurrent = true;
 
     if (!testId) {
@@ -402,15 +598,11 @@ function TrendPage({ devUser }: TrendPageProps) {
 
     setIsLoading(true);
     setErrorMessage("");
+    setTrendActionMessage("");
+    setTrendActionErrorMessage("");
+    setEditingPoint(null);
 
-    Promise.allSettled([
-      getPatientVaultService().getTrendForTest(testId, {
-        patientId: selectedPatientId
-      }),
-      getPatientVaultService().listAvailableTrendTests({
-        patientId: selectedPatientId
-      })
-    ])
+    loadTrendData(testId, selectedPatientId)
       .then(([trendResult, testsResult]) => {
         if (!isCurrent) {
           return;
@@ -448,6 +640,20 @@ function TrendPage({ devUser }: TrendPageProps) {
     };
   }, [isClinician, selectedPatientId, testId]);
 
+  async function loadTrendData(
+    selectedTestId: string,
+    selectedPatientUserId: string | null
+  ) {
+    return Promise.allSettled([
+      getPatientVaultService().getTrendForTest(selectedTestId, {
+        patientId: selectedPatientUserId
+      }),
+      getPatientVaultService().listAvailableTrendTests({
+        patientId: selectedPatientUserId
+      })
+    ]);
+  }
+
   const selectedTest = useMemo(
     () => tests.find((test) => test.testId === (trend?.testId ?? testId)),
     [testId, tests, trend?.testId]
@@ -468,6 +674,172 @@ function TrendPage({ devUser }: TrendPageProps) {
     [points, trend]
   );
   const linkedReportCount = getLinkedReportCount(points);
+
+  function handleEditManualObservation(point: ChartPoint) {
+    setTrendActionMessage("");
+    setTrendActionErrorMessage("");
+    setEditingPoint(point);
+    setManualEditForm({
+      testName: point.testName,
+      observedAt: point.observedAt,
+      numericValue: String(point.numericValue),
+      unit: point.unit,
+      referenceRange: point.referenceRange ?? "",
+      abnormalFlag: point.abnormalFlag ?? "NORMAL"
+    });
+  }
+
+  function updateManualEditField(
+    field: keyof ManualObservationEditForm,
+    value: string
+  ) {
+    setManualEditForm((currentForm) => ({
+      ...currentForm,
+      [field]: value
+    }));
+  }
+
+  async function refreshCurrentTrend() {
+    if (!testId) {
+      return;
+    }
+
+    const [trendResult, testsResult] = await loadTrendData(testId, selectedPatientId);
+
+    if (trendResult.status === "rejected") {
+      throw trendResult.reason;
+    }
+
+    setTrend(trendResult.value);
+
+    if (testsResult.status === "fulfilled") {
+      setTests(testsResult.value);
+    }
+  }
+
+  async function recordManualObservationAudit(
+    action: "MANUAL_OBSERVATION_UPDATED" | "MANUAL_OBSERVATION_DELETED",
+    observationId: string
+  ) {
+    const currentUser = getCurrentDevUser();
+
+    await getPatientVaultService().recordAuditEvent({
+      resourceType: "AuditEvent",
+      auditEventId: "",
+      actorUserId: currentUser.userId,
+      actorRole: currentUser.role,
+      patientUserId: currentUser.userId,
+      action,
+      resourceTypeName: "OBSERVATION",
+      resourceId: observationId,
+      details: null,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  async function handleSaveManualObservation() {
+    if (!editingPoint?.observationId) {
+      return;
+    }
+
+    const numericValue = Number(manualEditForm.numericValue);
+    const testName = manualEditForm.testName.trim();
+    const unit = manualEditForm.unit.trim();
+
+    setTrendActionMessage("");
+    setTrendActionErrorMessage("");
+
+    if (
+      !testName ||
+      !manualEditForm.observedAt ||
+      !unit ||
+      Number.isNaN(numericValue)
+    ) {
+      setTrendActionErrorMessage(
+        "Complete test name, observed date, value, and unit."
+      );
+      return;
+    }
+
+    setIsSavingManualObservation(true);
+
+    try {
+      const updatedObservation =
+        await getPatientVaultService().updateConfirmedObservation(
+          editingPoint.observationId,
+          {
+            abnormalFlag: manualEditForm.abnormalFlag,
+            numericValue,
+            observedAt: manualEditForm.observedAt,
+            referenceRange: blankToNull(manualEditForm.referenceRange),
+            testId: editingPoint.testId,
+            testName,
+            unit,
+            valueText: String(numericValue)
+          }
+        );
+
+      await recordManualObservationAudit(
+        "MANUAL_OBSERVATION_UPDATED",
+        updatedObservation.observationId
+      );
+      await refreshCurrentTrend();
+      setEditingPoint(null);
+      setManualEditForm(initialManualObservationEditForm);
+      setTrendActionMessage("Manual observation updated.");
+    } catch (error: unknown) {
+      setTrendActionErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update manual observation."
+      );
+    } finally {
+      setIsSavingManualObservation(false);
+    }
+  }
+
+  async function handleDeleteManualObservation(point: ChartPoint) {
+    if (!point.observationId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this manual observation from your local vault?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setTrendActionMessage("");
+    setTrendActionErrorMessage("");
+    setIsDeletingManualObservation(true);
+
+    try {
+      await getPatientVaultService().deleteConfirmedObservation(point.observationId);
+      await recordManualObservationAudit(
+        "MANUAL_OBSERVATION_DELETED",
+        point.observationId
+      );
+      await refreshCurrentTrend();
+      setEditingPoint(null);
+      setTrendActionMessage("Manual observation deleted.");
+    } catch (error: unknown) {
+      setTrendActionErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete manual observation."
+      );
+    } finally {
+      setIsDeletingManualObservation(false);
+    }
+  }
+
+  function handleCancelManualObservationEdit() {
+    setEditingPoint(null);
+    setManualEditForm(initialManualObservationEditForm);
+    setTrendActionErrorMessage("");
+  }
 
   return (
     <section className="trend-detail-page">
@@ -527,6 +899,18 @@ function TrendPage({ devUser }: TrendPageProps) {
 
       {!isLoading && !errorMessage && trend ? (
         <>
+          {trendActionMessage ? (
+            <p className="status-message success-message" role="status">
+              {trendActionMessage}
+            </p>
+          ) : null}
+
+          {trendActionErrorMessage ? (
+            <p className="status-message error-message" role="alert">
+              {trendActionErrorMessage}
+            </p>
+          ) : null}
+
           <dl className="trend-summary">
             <div>
               <dt>Latest value</dt>
@@ -589,12 +973,38 @@ function TrendPage({ devUser }: TrendPageProps) {
           )}
 
           {points.length > 0 ? (
-            <TrendPointsTable points={points} fallbackUnit={trendUnit} />
+            <TrendPointsTable
+              canManageManualObservations={canManageManualObservations}
+              editPanel={
+                editingPoint ? (
+                  <ManualObservationEditPanel
+                    form={manualEditForm}
+                    isSaving={isSavingManualObservation}
+                    onCancel={handleCancelManualObservationEdit}
+                    onChange={updateManualEditField}
+                    onSave={handleSaveManualObservation}
+                    panelRef={editPanelRef}
+                  />
+                ) : null
+              }
+              fallbackUnit={trendUnit}
+              isManualObservationMutating={
+                isDeletingManualObservation || isSavingManualObservation
+              }
+              onDeleteManualObservation={handleDeleteManualObservation}
+              onEditManualObservation={handleEditManualObservation}
+              points={points}
+            />
           ) : null}
         </>
       ) : null}
     </section>
   );
+}
+
+function blankToNull(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
 }
 
 export default TrendPage;

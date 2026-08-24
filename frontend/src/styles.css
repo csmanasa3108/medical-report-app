@@ -1488,6 +1488,29 @@ h2 {
   box-shadow: var(--card-shadow);
 }
 
+.manual-observation-edit-panel {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-9);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--card-radius);
+  background: var(--color-surface-soft);
+  box-shadow: var(--card-shadow);
+}
+
+.manual-observation-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.manual-observation-edit-grid label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
 .trend-points-header {
   margin-bottom: 0;
 }
@@ -2628,6 +2651,7 @@ h2 {
   .review-source-panel,
   .report-detail-metadata,
   .report-status-grid,
+  .manual-observation-edit-grid,
   .parsed-observation-detail-grid,
   .parsed-observation-edit-grid {
     grid-template-columns: 1fr;

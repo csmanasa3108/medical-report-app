@@ -3,6 +3,7 @@ import type {
   SerializedPatientVault,
   VaultAuditEvent,
   VaultAuditEventFilters,
+  VaultConfirmedObservationUpdate,
   VaultConfirmedObservationFilters,
   VaultObservation,
   VaultParsedObservationFilters,
@@ -59,6 +60,11 @@ export type PatientVaultService = {
   saveConfirmedObservation(
     observation: VaultObservation
   ): Promise<VaultObservation>;
+  updateConfirmedObservation(
+    observationId: string,
+    updates: VaultConfirmedObservationUpdate
+  ): Promise<VaultObservation>;
+  deleteConfirmedObservation(observationId: string): Promise<void>;
   listTrendPoints(
     testId: string,
     filters?: VaultTrendFilters
