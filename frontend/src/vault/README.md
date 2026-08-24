@@ -21,14 +21,14 @@ The hosted backend should eventually stop storing raw reports, extracted report 
 
 `VITE_PATIENT_VAULT_MODE` selects the adapter.
 
-- `api`: default. Keeps current app behavior available through an API-backed adapter. Report list/detail/upload/delete, parsed observation report detail flows, Review Queue, Trends, individual trend detail pages, and the patient dashboard report summary now use this service in API mode.
+- `api`: default. Keeps current app behavior available through an API-backed adapter. Report list/detail/upload/delete, parsed observation report detail flows, Review Queue, Trends, individual trend detail pages, Activity/Audit history, and the patient dashboard report summary now use this service in API mode.
 - `local`: development prototype using browser `localStorage`.
 
 Future modes may include encrypted local storage, encrypted export/import, and patient-owned cloud vault connectors.
 
 ## API Mode
 
-`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Report, parsed observation, confirmed observation, and trend flows still use the existing backend in this mode, so API mode remains a centralized demo path and can still store report PHI, extracted result metadata, lab values, and trend data in the backend. Some non-report write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
+`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Report, parsed observation, confirmed observation, trend, and Activity/Audit flows still use the existing backend in this mode, so API mode remains a centralized demo path and can still store report PHI, extracted result metadata, lab values, trend data, and backend audit metadata centrally. Some non-report write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
 
 This mode is a transition adapter, not the target patient-owned storage model.
 
@@ -46,6 +46,8 @@ Important limitations:
 
 Encryption must be added before any real PHI is stored locally.
 
+Activity/Audit history now reads through `PatientVaultService`. In the final encrypted vault model, detailed patient-local audit events may live in the patient-owned vault, while central backend audit should be limited to metadata/control-plane events such as account, sharing, and key-envelope operations.
+
 ## Encryption Requirement
 
 The final vault model must encrypt PHI before it leaves the patient's device. The server must never receive or store plaintext raw reports, extracted text, lab values, parsed observations, confirmed observations, or trend points.
@@ -60,10 +62,11 @@ Recommended migration order:
 2. Move report list/detail/upload/delete and simple report summaries behind `PatientVaultService`. This has started.
 3. Move parsed observation report detail flows and Review Queue behind `PatientVaultService`. This has started.
 4. Route confirmed-observation and read-only trend workflows through `PatientVaultService`. This has started.
-5. Add encrypted local vault storage.
-6. Move report parsing internals fully into the vault service implementation.
-7. Add encrypted export/import.
-8. Add patient-owned cloud vault connector support.
-9. Add clinician key wrapping and scoped sharing.
+5. Route Activity/Audit history through `PatientVaultService`. This has started.
+6. Add encrypted local vault storage.
+7. Move report parsing internals fully into the vault service implementation.
+8. Add encrypted export/import.
+9. Add patient-owned cloud vault connector support.
+10. Add clinician key wrapping and scoped sharing.
 
 Until those steps are complete, hosted demos should use synthetic data only.

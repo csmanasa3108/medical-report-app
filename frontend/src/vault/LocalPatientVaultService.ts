@@ -458,36 +458,14 @@ export class LocalPatientVaultService implements PatientVaultService {
     } satisfies VaultTrend;
   }
 
-  async listAuditEvents(filters: VaultAuditEventFilters = {}) {
-    const snapshot = this.readSnapshot();
-    const limit = filters.limit ?? 50;
-
-    return snapshot.auditEvents
-      .filter((event) => matchesPatient(event.patientUserId, filters.patientId))
-      .filter((event) => !filters.action || event.action === filters.action)
-      .filter(
-        (event) =>
-          !filters.resourceType || event.resourceTypeName === filters.resourceType
-      )
-      .sort(byNewestCreatedAt)
-      .slice(0, limit);
+  async listAuditEvents(
+    _filters: VaultAuditEventFilters = {}
+  ): Promise<VaultAuditEvent[]> {
+    throw localVaultUnsupported("local vault audit events");
   }
 
-  async recordAuditEvent(event: VaultAuditEvent) {
-    const snapshot = this.readSnapshot();
-    const eventToSave: VaultAuditEvent = {
-      ...event,
-      auditEventId: event.auditEventId || createId("audit"),
-      createdAt: event.createdAt || nowIso()
-    };
-
-    snapshot.auditEvents = upsertBy(
-      snapshot.auditEvents,
-      eventToSave,
-      (candidate) => candidate.auditEventId === eventToSave.auditEventId
-    );
-    this.writeSnapshot(snapshot);
-    return eventToSave;
+  async recordAuditEvent(_event: VaultAuditEvent): Promise<VaultAuditEvent> {
+    throw localVaultUnsupported("local vault audit events");
   }
 
   async exportVault(): Promise<SerializedPatientVault> {

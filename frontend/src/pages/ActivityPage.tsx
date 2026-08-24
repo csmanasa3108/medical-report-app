@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   formatLoadErrorMessage,
-  getAuditEvents,
   getSelectedAssignedPatientId
 } from "../api/client";
-import type { AuditEventResponse, DevUser } from "../api/client";
+import type { DevUser } from "../api/client";
+import { getPatientVaultService } from "../vault";
+import type { VaultAuditEvent } from "../vault";
 
 type ActivityPageProps = {
   devUser: DevUser;
@@ -51,7 +52,7 @@ function formatDateTime(value: string) {
 }
 
 function ActivityPage({ devUser }: ActivityPageProps) {
-  const [events, setEvents] = useState<AuditEventResponse[]>([]);
+  const [events, setEvents] = useState<VaultAuditEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const isClinician = devUser.role === "CLINICIAN";
@@ -71,7 +72,8 @@ function ActivityPage({ devUser }: ActivityPageProps) {
       };
     }
 
-    getAuditEvents(selectedPatientId)
+    getPatientVaultService()
+      .listAuditEvents({ patientId: selectedPatientId })
       .then((activityEvents) => {
         if (isCurrent) {
           setEvents(activityEvents);
@@ -141,12 +143,12 @@ function ActivityPage({ devUser }: ActivityPageProps) {
             </thead>
             <tbody>
               {events.map((event) => (
-                <tr key={event.id}>
+                <tr key={event.auditEventId}>
                   <td className="report-filename">
                     {formatAction(event.action)}
                   </td>
                   <td>{formatLabel(event.actorRole)}</td>
-                  <td>{formatLabel(event.resourceType)}</td>
+                  <td>{formatLabel(event.resourceTypeName)}</td>
                   <td>{formatDateTime(event.createdAt)}</td>
                 </tr>
               ))}
