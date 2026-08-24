@@ -359,7 +359,7 @@ function PatientNeedsReviewPanel({
       {!isLoading && !errorMessage && visibleItems.length === 0 ? (
         <p className="dashboard-empty-state">
           {isLocalVaultMode
-            ? "Review Queue will be available after local extraction is implemented."
+            ? "Automatic extraction is not available yet. Add observations manually or upload reports as local records."
             : "No results waiting for review."}
         </p>
       ) : null}
