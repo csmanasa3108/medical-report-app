@@ -162,6 +162,77 @@ select:focus-visible {
   font-size: var(--font-size-sm);
 }
 
+.vault-settings-page {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.vault-warning-panel {
+  padding: var(--space-6);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--card-radius);
+  color: var(--color-warning);
+  background: var(--color-warning-tint);
+}
+
+.vault-warning-panel strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-warning);
+}
+
+.vault-warning-panel p {
+  max-width: 780px;
+  margin: 0;
+}
+
+.vault-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.vault-settings-card {
+  display: grid;
+  align-content: space-between;
+  gap: var(--space-7);
+  min-width: 0;
+  min-height: 240px;
+  padding: var(--space-9);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--color-white);
+  box-shadow: var(--card-shadow);
+}
+
+.vault-settings-card h3 {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+.vault-settings-card p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.vault-danger-card {
+  border-color: var(--color-danger-border);
+}
+
+.vault-import-button {
+  position: relative;
+  justify-self: start;
+  overflow: hidden;
+}
+
+.vault-import-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
 .app-header {
   position: sticky;
   top: 0;
@@ -2502,7 +2573,8 @@ h2 {
   .dashboard-summary-grid,
   .dashboard-action-grid,
   .dashboard-main-grid,
-  .clinician-dashboard-grid {
+  .clinician-dashboard-grid,
+  .vault-settings-grid {
     grid-template-columns: 1fr;
   }
 

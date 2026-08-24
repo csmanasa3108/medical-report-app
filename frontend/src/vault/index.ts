@@ -30,6 +30,7 @@ export type {
 export { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";
 export {
   LocalPatientVaultService,
+  clearLocalPatientVault,
   hasLocalPatientVault,
   isLocalPatientVaultUnlocked,
   lockLocalPatientVault,

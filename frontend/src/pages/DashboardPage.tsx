@@ -4,19 +4,19 @@ import {
   clearSelectedAssignedPatientId,
   formatLoadErrorMessage,
   getAssignedPatients,
-  getAuditEvents,
   getPatientClinicianAccess,
   getSelectedAssignedPatientId,
   setSelectedAssignedPatientId
 } from "../api/client";
 import type {
   AssignedPatientResponse,
-  AuditEventResponse,
   DevUser,
   PatientClinicianAccessResponse
 } from "../api/client";
 import { getPatientVaultService } from "../vault";
+import { getPatientVaultMode } from "../vault/config";
 import type {
+  VaultAuditEvent,
   VaultParsedObservationReviewItem,
   VaultReportDocument
 } from "../vault";
@@ -43,7 +43,7 @@ type PatientDashboardData = {
   reports: VaultReportDocument[];
   reviewItems: VaultParsedObservationReviewItem[];
   careTeamAccess: PatientClinicianAccessResponse[];
-  activityEvents: AuditEventResponse[];
+  activityEvents: VaultAuditEvent[];
 };
 
 type PatientDashboardErrors = {
@@ -201,7 +201,8 @@ function getObservationName(observation: VaultParsedObservationReviewItem) {
 function buildPatientSummaryCards(
   data: PatientDashboardData,
   errors: PatientDashboardErrors,
-  isLoading: boolean
+  isLoading: boolean,
+  isLocalVaultMode: boolean
 ): SummaryCard[] {
   const latestReport = getLatestReport(data.reports);
   const activeCareTeamCount = data.careTeamAccess.filter(
@@ -237,6 +238,8 @@ function buildPatientSummaryCards(
           : data.reviewItems.length.toLocaleString(),
       detail: isLoading
         ? "Loading review queue..."
+        : isLocalVaultMode
+        ? "Local extraction coming soon"
         : errors.review
         ? "Open the review queue"
         : data.reviewItems.length === 0
@@ -321,10 +324,12 @@ function DashboardSummaryGrid({ cards }: { cards: SummaryCard[] }) {
 function PatientNeedsReviewPanel({
   errorMessage,
   isLoading,
+  isLocalVaultMode,
   reviewItems
 }: {
   errorMessage: string;
   isLoading: boolean;
+  isLocalVaultMode: boolean;
   reviewItems: VaultParsedObservationReviewItem[];
 }) {
   const visibleItems = reviewItems.slice(0, 4);
@@ -352,7 +357,11 @@ function PatientNeedsReviewPanel({
       ) : null}
 
       {!isLoading && !errorMessage && visibleItems.length === 0 ? (
-        <p className="dashboard-empty-state">No results waiting for review.</p>
+        <p className="dashboard-empty-state">
+          {isLocalVaultMode
+            ? "Review Queue will be available after local extraction is implemented."
+            : "No results waiting for review."}
+        </p>
       ) : null}
 
       {!isLoading && !errorMessage && visibleItems.length > 0 ? (
@@ -382,11 +391,13 @@ function PatientNeedsReviewPanel({
 function RecentActivityPanel({
   activityEvents,
   errorMessage,
-  isLoading
+  isLoading,
+  isLocalVaultMode
 }: {
-  activityEvents: AuditEventResponse[];
+  activityEvents: VaultAuditEvent[];
   errorMessage: string;
   isLoading: boolean;
+  isLocalVaultMode: boolean;
 }) {
   const visibleEvents = activityEvents.slice(0, 5);
 
@@ -411,18 +422,25 @@ function RecentActivityPanel({
       ) : null}
 
       {!isLoading && !errorMessage && visibleEvents.length === 0 ? (
-        <p className="dashboard-empty-state">No activity yet.</p>
+        <p className="dashboard-empty-state">
+          {isLocalVaultMode
+            ? "Local activity history will be available as vault features are completed."
+            : "No activity yet."}
+        </p>
       ) : null}
 
       {!isLoading && !errorMessage && visibleEvents.length > 0 ? (
         <div className="dashboard-activity-list">
           {visibleEvents.map((event) => {
             const eventMeta = `${formatLabel(event.actorRole)} - ${formatLabel(
-              event.resourceType
+              event.resourceTypeName
             )}`;
 
             return (
-              <article className="dashboard-activity-item" key={event.id}>
+              <article
+                className="dashboard-activity-item"
+                key={event.auditEventId}
+              >
                 <span>
                   <strong>{formatAction(event.action)}</strong>
                   <small className="text-truncate" title={eventMeta}>
@@ -472,6 +490,7 @@ function PatientDashboard() {
   });
   const [errors, setErrors] = useState<PatientDashboardErrors>({});
   const [isLoading, setIsLoading] = useState(true);
+  const isLocalVaultMode = getPatientVaultMode() === "local";
 
   useEffect(() => {
     let isCurrent = true;
@@ -485,7 +504,7 @@ function PatientDashboard() {
         status: "NEEDS_REVIEW"
       }),
       getPatientClinicianAccess(),
-      getAuditEvents()
+      getPatientVaultService().listAuditEvents()
     ])
       .then(([reportsResult, reviewResult, careTeamResult, activityResult]) => {
         if (!isCurrent) {
@@ -568,19 +587,26 @@ function PatientDashboard() {
       </div>
 
       <DashboardSummaryGrid
-        cards={buildPatientSummaryCards(data, errors, isLoading)}
+        cards={buildPatientSummaryCards(
+          data,
+          errors,
+          isLoading,
+          isLocalVaultMode
+        )}
       />
 
       <div className="dashboard-main-grid">
         <PatientNeedsReviewPanel
           errorMessage={errors.review ?? ""}
           isLoading={isLoading}
+          isLocalVaultMode={isLocalVaultMode}
           reviewItems={data.reviewItems}
         />
         <RecentActivityPanel
           activityEvents={data.activityEvents}
           errorMessage={errors.activity ?? ""}
           isLoading={isLoading}
+          isLocalVaultMode={isLocalVaultMode}
         />
       </div>
 

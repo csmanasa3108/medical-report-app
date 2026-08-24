@@ -1,6 +1,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getPatientVaultService } from "../vault";
+import { getPatientVaultMode } from "../vault/config";
 
 type ReportFormState = {
   reportDate: string;
@@ -19,6 +20,7 @@ function NewReportPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const isLocalVaultMode = getPatientVaultMode() === "local";
 
   function updateField(field: keyof ReportFormState, value: string) {
     setForm((currentForm) => ({
@@ -75,8 +77,9 @@ function NewReportPage() {
       }
       navigate(`/reports/${createdReport.reportId}`, {
         state: {
-          successMessage:
-            "Report uploaded and parsed. Review observations before confirming."
+          successMessage: isLocalVaultMode
+            ? "Report metadata was saved to your local encrypted vault. Automatic extraction is not available in local mode yet."
+            : "Report uploaded and parsed. Review observations before confirming."
         }
       });
     } catch (error: unknown) {
@@ -95,8 +98,9 @@ function NewReportPage() {
           <p className="eyebrow">Reports</p>
           <h2 className="page-title">Upload Diagnostic Report</h2>
           <p className="page-description">
-            Add a PDF report and optional metadata. Uploaded reports are parsed
-            automatically for review.
+            {isLocalVaultMode
+              ? "Save report metadata in your local encrypted vault. Automatic extraction is not available in local mode yet."
+              : "Add a PDF report and optional metadata. Uploaded reports are parsed automatically for review."}
           </p>
         </div>
         <Link className="button-link secondary" to="/reports">
@@ -105,6 +109,13 @@ function NewReportPage() {
       </div>
 
       <div className="form-card">
+        {isLocalVaultMode ? (
+          <p className="status-message local-prototype-message">
+            Report metadata will be saved to your local encrypted vault.
+            Browser-side extraction is not implemented yet.
+          </p>
+        ) : null}
+
         <form className="metadata-form upload-report-form" onSubmit={handleSubmit}>
           <label className="full-span-field">
             <span>PDF file</span>

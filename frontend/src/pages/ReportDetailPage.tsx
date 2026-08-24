@@ -8,6 +8,7 @@ import {
 import type { DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import { getPatientVaultService } from "../vault";
+import { getPatientVaultMode } from "../vault/config";
 import type {
   VaultParsedObservationReviewItem,
   VaultParsedObservationUpdate,
@@ -227,6 +228,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const uploadSuccessMessage = (location.state as ReportDetailLocationState | null)
     ?.successMessage;
   const isClinician = devUser.role === "CLINICIAN";
+  const isLocalVaultMode = getPatientVaultMode() === "local";
 
   useEffect(() => {
     let isCurrent = true;
@@ -394,7 +396,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   }
 
   async function handleRefreshParsedObservations() {
-    if (!reportId) {
+    if (!reportId || isLocalVaultMode) {
       return;
     }
 
@@ -631,13 +633,24 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
                 <p className="eyebrow">Extracted results</p>
                 <h3>Parsed observations</h3>
                 <p className="parse-observations-helper">
-                  {isClinician
+                  {isLocalVaultMode
+                    ? "Your report is stored in your local encrypted vault. Browser-side extraction is not implemented yet."
+                    : isClinician
                     ? "View extracted observations for the selected assigned patient."
                     : "Review extracted observations before confirming them into trends."}
                 </p>
               </div>
               <div className="parsed-observations-actions">
-                {!isClinician ? (
+                {isLocalVaultMode ? (
+                  <button
+                    className="action-button secondary"
+                    type="button"
+                    disabled
+                    title="Browser-side extraction is not implemented yet."
+                  >
+                    Browser extraction coming soon
+                  </button>
+                ) : !isClinician ? (
                   <button
                     className="action-button secondary"
                     type="button"
@@ -674,14 +687,32 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
               <section className="report-detail-empty-state">
                 <div>
                   <p className="eyebrow">Parsed observations</p>
-                  <h3>No extracted results yet.</h3>
+                  <h3>
+                    {isLocalVaultMode
+                      ? "Local extraction is not available yet"
+                      : "No extracted results yet."}
+                  </h3>
                   <p>
-                    {isClinician
+                    {isLocalVaultMode
+                      ? "Your report is stored in your local encrypted vault. Browser-side extraction is not implemented yet, so this report cannot be parsed automatically in local mode."
+                      : isClinician
                       ? "This report does not have extracted results available yet."
                       : "Refresh extracted results to parse observations from this source report."}
                   </p>
                 </div>
-                {!isClinician ? (
+                {isLocalVaultMode ? (
+                  <div className="message-actions">
+                    <Link className="button-link" to="/observations/new">
+                      Add manual observation
+                    </Link>
+                    <Link className="button-link secondary" to="/reports">
+                      Back to reports
+                    </Link>
+                    <button className="action-button secondary" type="button" disabled>
+                      Browser extraction coming soon
+                    </button>
+                  </div>
+                ) : !isClinician ? (
                   <button
                     className="action-button"
                     type="button"

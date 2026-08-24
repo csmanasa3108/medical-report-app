@@ -17,7 +17,9 @@ import ReportsListPage from "./pages/ReportsListPage";
 import ReviewQueuePage from "./pages/ReviewQueuePage";
 import TrendPage from "./pages/TrendPage";
 import TrendsPage from "./pages/TrendsPage";
+import VaultSettingsPage from "./pages/VaultSettingsPage";
 import soveraHealthWordmark from "./assets/brand/soverahealth-wordmark.png";
+import { getPatientVaultMode } from "./vault/config";
 import LocalVaultGate from "./vault/local/LocalVaultGate";
 
 type NavItem = {
@@ -33,6 +35,11 @@ const patientNavItems: NavItem[] = [
   { label: "Trends", to: "/trends" },
   { label: "Activity", to: "/activity" },
   { label: "Care Team", to: "/care-team" }
+];
+
+const localPatientNavItems: NavItem[] = [
+  ...patientNavItems,
+  { label: "Vault Settings", to: "/vault-settings" }
 ];
 
 const clinicianNavItems: NavItem[] = [
@@ -59,8 +66,13 @@ function UnavailableForRolePage({ devUser }: { devUser: DevUser }) {
 
 function SidebarNavigation({ devUser }: { devUser: DevUser }) {
   const location = useLocation();
+  const isLocalVaultMode = getPatientVaultMode() === "local";
   const navItems =
-    devUser.role === "CLINICIAN" ? clinicianNavItems : patientNavItems;
+    devUser.role === "CLINICIAN"
+      ? clinicianNavItems
+      : isLocalVaultMode
+        ? localPatientNavItems
+        : patientNavItems;
 
   return (
     <aside className="sidebar-nav" aria-label="Primary navigation">
@@ -207,6 +219,16 @@ function App() {
               <Route
                 path="/tests/:testId/trend"
                 element={<TrendPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/vault-settings"
+                element={
+                  selectedDevUser.role === "PATIENT" ? (
+                    <VaultSettingsPage />
+                  ) : (
+                    <UnavailableForRolePage devUser={selectedDevUser} />
+                  )
+                }
               />
             </Routes>
           </main>

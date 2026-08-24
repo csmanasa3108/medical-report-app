@@ -5,6 +5,7 @@ import {
 } from "../api/client";
 import type { DevUser } from "../api/client";
 import { getPatientVaultService } from "../vault";
+import { getPatientVaultMode } from "../vault/config";
 import type { VaultAuditEvent } from "../vault";
 
 type ActivityPageProps = {
@@ -57,6 +58,7 @@ function ActivityPage({ devUser }: ActivityPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const isClinician = devUser.role === "CLINICIAN";
   const selectedPatientId = isClinician ? getSelectedAssignedPatientId() : null;
+  const isLocalVaultMode = getPatientVaultMode() === "local";
 
   useEffect(() => {
     let isCurrent = true;
@@ -127,7 +129,11 @@ function ActivityPage({ devUser }: ActivityPageProps) {
       !errorMessage &&
       (!isClinician || selectedPatientId) &&
       events.length === 0 ? (
-        <p className="status-message">No activity yet.</p>
+        <p className="status-message">
+          {isLocalVaultMode
+            ? "Local activity history will be available as vault features are completed."
+            : "No activity yet."}
+        </p>
       ) : null}
 
       {!isLoading && !errorMessage && events.length > 0 ? (

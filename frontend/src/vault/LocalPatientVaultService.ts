@@ -6,6 +6,7 @@ import {
   encryptJsonWithKey
 } from "./crypto/vaultCrypto";
 import {
+  clearEncryptedVault,
   loadEncryptedVaultBlob,
   parseSerializedEncryptedVault,
   saveEncryptedVaultBlob,
@@ -213,6 +214,11 @@ export function lockLocalPatientVault() {
   unlockedSnapshot = null;
   activeEncryptionKey = null;
   activeSalt = null;
+}
+
+export function clearLocalPatientVault() {
+  clearEncryptedVault();
+  lockLocalPatientVault();
 }
 
 export class LocalPatientVaultService implements PatientVaultService {

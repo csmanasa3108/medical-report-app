@@ -56,6 +56,16 @@ The encrypted vault blob is stored in `localStorage` under a development-only ke
 
 The app does not store the plaintext passphrase, and the Web Crypto key is created as non-extractable. Decrypted vault data is kept only in memory after unlock and is not available after a page reload until the user unlocks again.
 
+## Local Backup UI
+
+In local mode, patient users can open `/vault-settings` from the sidebar. Clinician users do not see this route in primary navigation.
+
+Export downloads `soverahealth-vault-backup.json` by calling `PatientVaultService.exportVault()`. The file is the encrypted vault blob only: version, PBKDF2 metadata, AES-GCM IV, timestamps, and ciphertext. It should not contain plaintext reports, parsed observations, lab values, trends, audit event details, or decrypted vault JSON.
+
+Import accepts an exported encrypted JSON backup, validates the basic encrypted blob shape, asks for confirmation, and then calls `PatientVaultService.importVault(serializedVault)`. Import replaces the encrypted vault blob on this device and locks the current in-memory vault session. The user must unlock the imported backup with its passphrase after reload.
+
+Clear local vault removes the encrypted local vault blob from this browser/device and locks the in-memory vault session. This does not affect API mode or backend data. Without an exported backup file and passphrase, clearing local storage is not recoverable.
+
 Important limitations:
 
 - It is not production-ready.
@@ -64,6 +74,7 @@ Important limitations:
 - Browser storage can be cleared by the user or browser.
 - Losing the passphrase means the vault cannot be recovered.
 - Losing the browser/device can mean data loss without an encrypted export backup.
+- Anyone with the encrypted backup file and its passphrase may access the vault contents.
 - There is no server-side recovery.
 - Upload/PDF parsing still requires API mode for full behavior; local mode stores report metadata only for uploads.
 
