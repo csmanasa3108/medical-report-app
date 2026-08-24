@@ -3,13 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import {
   formatLoadErrorMessage,
   getAssignedPatients,
-  getLabTrend,
-  getSelectedAssignedPatientId,
-  getTests,
-  LabTrendResponse,
-  TestCatalogResponse
+  getSelectedAssignedPatientId
 } from "../api/client";
 import type { AssignedPatientResponse, DevUser } from "../api/client";
+import { getPatientVaultService } from "../vault";
+import type { VaultTrend, VaultTrendPoint, VaultTrendTest } from "../vault";
 
 type TrendPageProps = {
   devUser: DevUser;
@@ -31,7 +29,7 @@ type Summary = {
   latestValue: number | null;
 };
 
-function getCatalogTestName(test: TestCatalogResponse | undefined) {
+function getCatalogTestName(test: VaultTrendTest | undefined) {
   return test?.displayName || test?.canonicalName || test?.name || "";
 }
 
@@ -80,7 +78,7 @@ function sortTrendPoints(points: ChartPoint[]) {
   );
 }
 
-function getSummary(trend: LabTrendResponse, points: ChartPoint[]): Summary {
+function getSummary(trend: VaultTrend, points: ChartPoint[]): Summary {
   const latestPoint = points[points.length - 1];
   const latestValue = trend.latestValue ?? latestPoint?.numericValue ?? null;
 
@@ -138,9 +136,9 @@ function formatTooltip(point: ChartPoint, fallbackUnit: string) {
   return lines.join("\n");
 }
 
-function toChartPoint(point: LabTrendResponse["points"][number], fallbackUnit: string): ChartPoint | null {
-  const observedAt = point.observedAt ?? point.date;
-  const rawValue = point.numericValue ?? point.value;
+function toChartPoint(point: VaultTrendPoint, fallbackUnit: string): ChartPoint | null {
+  const observedAt = point.observedAt;
+  const rawValue = point.numericValue;
   const numericValue = Number(rawValue);
 
   if (!observedAt || !Number.isFinite(numericValue)) {
@@ -326,8 +324,8 @@ function TrendPointsTable({ points, fallbackUnit }: { points: ChartPoint[]; fall
 
 function TrendPage({ devUser }: TrendPageProps) {
   const { testId } = useParams();
-  const [trend, setTrend] = useState<LabTrendResponse | null>(null);
-  const [tests, setTests] = useState<TestCatalogResponse[]>([]);
+  const [trend, setTrend] = useState<VaultTrend | null>(null);
+  const [tests, setTests] = useState<VaultTrendTest[]>([]);
   const [assignedPatients, setAssignedPatients] = useState<
     AssignedPatientResponse[]
   >([]);
@@ -405,7 +403,14 @@ function TrendPage({ devUser }: TrendPageProps) {
     setIsLoading(true);
     setErrorMessage("");
 
-    Promise.allSettled([getLabTrend(testId, selectedPatientId), getTests()])
+    Promise.allSettled([
+      getPatientVaultService().getTrendForTest(testId, {
+        patientId: selectedPatientId
+      }),
+      getPatientVaultService().listAvailableTrendTests({
+        patientId: selectedPatientId
+      })
+    ])
       .then(([trendResult, testsResult]) => {
         if (!isCurrent) {
           return;
@@ -444,7 +449,7 @@ function TrendPage({ devUser }: TrendPageProps) {
   }, [isClinician, selectedPatientId, testId]);
 
   const selectedTest = useMemo(
-    () => tests.find((test) => test.id === (trend?.testId ?? testId)),
+    () => tests.find((test) => test.testId === (trend?.testId ?? testId)),
     [testId, tests, trend?.testId]
   );
   const trendName =

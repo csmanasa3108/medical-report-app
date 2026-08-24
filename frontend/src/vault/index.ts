@@ -22,6 +22,9 @@ export type {
   VaultReportUploadMetadata,
   VaultResourceStatus,
   VaultSourceType,
+  VaultTrend,
+  VaultTrendFilters,
+  VaultTrendTest,
   VaultTrendPoint
 } from "./models";
 export { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";

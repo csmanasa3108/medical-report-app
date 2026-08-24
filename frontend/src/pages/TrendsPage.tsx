@@ -3,39 +3,18 @@ import { Link } from "react-router-dom";
 import {
   formatLoadErrorMessage,
   getAssignedPatients,
-  getLabTrend,
-  getSelectedAssignedPatientId,
-  getTests
+  getSelectedAssignedPatientId
 } from "../api/client";
-import type {
-  AssignedPatientResponse,
-  DevUser,
-  TestCatalogResponse
-} from "../api/client";
+import type { AssignedPatientResponse, DevUser } from "../api/client";
+import { getPatientVaultService } from "../vault";
+import type { VaultTrendTest } from "../vault";
 
 type TrendsPageProps = {
   devUser: DevUser;
 };
 
-type TrendAvailability = {
-  test: TestCatalogResponse;
-  pointCount: number;
-  unit: string;
-};
-
-function getTestName(test: TestCatalogResponse) {
-  return test.displayName || test.canonicalName;
-}
-
-function hasUsableTrendPoint(point: {
-  observedAt?: string | null;
-  date?: string;
-  numericValue?: number | string | null;
-  value?: number | string;
-}) {
-  const observedAt = point.observedAt ?? point.date;
-  const rawValue = point.numericValue ?? point.value;
-  return Boolean(observedAt) && Number.isFinite(Number(rawValue));
+function getTestName(test: VaultTrendTest) {
+  return test.displayName || test.canonicalName || test.name || "Confirmed result";
 }
 
 function TrendsEmptyState({ isClinician }: { isClinician: boolean }) {
@@ -83,7 +62,7 @@ function SelectPatientState() {
 }
 
 function TrendsPage({ devUser }: TrendsPageProps) {
-  const [trends, setTrends] = useState<TrendAvailability[]>([]);
+  const [trends, setTrends] = useState<VaultTrendTest[]>([]);
   const [assignedPatients, setAssignedPatients] = useState<
     AssignedPatientResponse[]
   >([]);
@@ -152,37 +131,12 @@ function TrendsPage({ devUser }: TrendsPageProps) {
       };
     }
 
-    getTests()
-      .then(async (testCatalog) => {
-        const trendResults = await Promise.allSettled(
-          testCatalog.map((test) => getLabTrend(test.id, selectedPatientId))
-        );
-
+    getPatientVaultService()
+      .listAvailableTrendTests({ patientId: selectedPatientId })
+      .then((availableTrends) => {
         if (!isCurrent) {
           return;
         }
-
-        const availableTrends = testCatalog.flatMap((test, index) => {
-          const trendResult = trendResults[index];
-
-          if (trendResult.status !== "fulfilled") {
-            return [];
-          }
-
-          const points = trendResult.value.points.filter(hasUsableTrendPoint);
-
-          if (points.length === 0) {
-            return [];
-          }
-
-          return [
-            {
-              test,
-              pointCount: points.length,
-              unit: trendResult.value.unit ?? test.defaultUnit ?? ""
-            }
-          ];
-        });
 
         setTrends(availableTrends);
       })
@@ -285,8 +239,8 @@ function TrendsPage({ devUser }: TrendsPageProps) {
             </span>
           </div>
           <div className="trends-grid" aria-label="Available lab test trends">
-            {trends.map(({ pointCount, test, unit }) => (
-              <article className="trend-test-card" key={test.id}>
+            {trends.map((test) => (
+              <article className="trend-test-card" key={test.testId}>
                 <div>
                   {test.category ? (
                     <p className="trend-test-category">{test.category}</p>
@@ -295,17 +249,17 @@ function TrendsPage({ devUser }: TrendsPageProps) {
                   <dl className="trend-test-meta">
                     <div>
                       <dt>Confirmed points</dt>
-                      <dd>{pointCount.toLocaleString()}</dd>
+                      <dd>{test.pointCount.toLocaleString()}</dd>
                     </div>
                     <div>
                       <dt>Unit</dt>
-                      <dd>{unit || "Not provided"}</dd>
+                      <dd>{test.unit || test.defaultUnit || "Not provided"}</dd>
                     </div>
                   </dl>
                 </div>
                 <Link
                   className="button-link secondary"
-                  to={`/tests/${test.id}/trend`}
+                  to={`/tests/${test.testId}/trend`}
                 >
                   View trend
                 </Link>

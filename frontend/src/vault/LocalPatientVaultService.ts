@@ -13,6 +13,9 @@ import type {
   VaultReportFilters,
   VaultReportUploadMetadata,
   VaultResourceStatus,
+  VaultTrend,
+  VaultTrendFilters,
+  VaultTrendTest,
   VaultTrendPoint
 } from "./models";
 
@@ -135,6 +138,25 @@ function localVaultUnsupported(operation: string): Error {
   return new Error(
     `${operation} is not implemented for local patient vault mode yet. Local mode is unencrypted and development-only.`
   );
+}
+
+function isInDateRange(
+  observedAt: string | null,
+  filters: VaultTrendFilters | VaultConfirmedObservationFilters
+) {
+  if (!observedAt) {
+    return false;
+  }
+
+  if (filters.startDate && observedAt < filters.startDate) {
+    return false;
+  }
+
+  if (filters.endDate && observedAt > filters.endDate) {
+    return false;
+  }
+
+  return true;
 }
 
 export class LocalPatientVaultService implements PatientVaultService {
@@ -344,6 +366,7 @@ export class LocalPatientVaultService implements PatientVaultService {
       .filter(
         (observation) => !filters.testId || observation.testId === filters.testId
       )
+      .filter((observation) => isInDateRange(observation.observedAt, filters))
       .sort(byNewestCreatedAt);
   }
 
@@ -367,16 +390,72 @@ export class LocalPatientVaultService implements PatientVaultService {
     return observationToSave;
   }
 
-  async listTrendPoints(testId: string) {
+  async listTrendPoints(testId: string, filters: VaultTrendFilters = {}) {
     const snapshot = this.readSnapshot();
 
     return snapshot.observations
       .filter((observation) => observation.testId === testId)
       .filter((observation) => observation.status === "CONFIRMED")
+      .filter((observation) =>
+        matchesPatient(observation.patientUserId, filters.patientId)
+      )
+      .filter((observation) => isInDateRange(observation.observedAt, filters))
       .map(mapObservationToTrendPoint)
       .sort((left, right) => {
         return Date.parse(left.observedAt ?? "") - Date.parse(right.observedAt ?? "");
       });
+  }
+
+  async listAvailableTrendTests(filters: VaultTrendFilters = {}) {
+    const snapshot = this.readSnapshot();
+    const observationsByTestId = new Map<string, VaultObservation[]>();
+
+    for (const observation of snapshot.observations) {
+      if (
+        observation.status !== "CONFIRMED" ||
+        !observation.testId ||
+        !matchesPatient(observation.patientUserId, filters.patientId) ||
+        !isInDateRange(observation.observedAt, filters)
+      ) {
+        continue;
+      }
+
+      const observations = observationsByTestId.get(observation.testId) ?? [];
+      observations.push(observation);
+      observationsByTestId.set(observation.testId, observations);
+    }
+
+    return Array.from(observationsByTestId.entries()).map(
+      ([testId, observations]): VaultTrendTest => {
+        const firstObservation = observations[0];
+        return {
+          testId,
+          canonicalName: firstObservation.testName,
+          displayName: firstObservation.testName,
+          name: firstObservation.testName,
+          defaultUnit: firstObservation.unit,
+          category: null,
+          pointCount: observations.length,
+          unit: firstObservation.unit
+        };
+      }
+    );
+  }
+
+  async getTrendForTest(testId: string, filters: VaultTrendFilters = {}) {
+    const points = await this.listTrendPoints(testId, filters);
+    const latestPoint = points[points.length - 1];
+
+    return {
+      testId,
+      testName: latestPoint?.testName ?? null,
+      unit: latestPoint?.unit ?? null,
+      points,
+      latestValue: latestPoint?.numericValue ?? null,
+      previousValue: points.length > 1 ? points[points.length - 2].numericValue : null,
+      absoluteChange: null,
+      percentChange: null
+    } satisfies VaultTrend;
   }
 
   async listAuditEvents(filters: VaultAuditEventFilters = {}) {

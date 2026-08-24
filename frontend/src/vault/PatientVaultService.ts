@@ -12,6 +12,9 @@ import type {
   VaultReportFilters,
   VaultReportUploadMetadata,
   VaultResourceStatus,
+  VaultTrend,
+  VaultTrendFilters,
+  VaultTrendTest,
   VaultTrendPoint
 } from "./models";
 
@@ -56,7 +59,12 @@ export type PatientVaultService = {
   saveConfirmedObservation(
     observation: VaultObservation
   ): Promise<VaultObservation>;
-  listTrendPoints(testId: string): Promise<VaultTrendPoint[]>;
+  listTrendPoints(
+    testId: string,
+    filters?: VaultTrendFilters
+  ): Promise<VaultTrendPoint[]>;
+  listAvailableTrendTests(filters?: VaultTrendFilters): Promise<VaultTrendTest[]>;
+  getTrendForTest(testId: string, filters?: VaultTrendFilters): Promise<VaultTrend>;
 
   listAuditEvents(filters?: VaultAuditEventFilters): Promise<VaultAuditEvent[]>;
   recordAuditEvent(event: VaultAuditEvent): Promise<VaultAuditEvent>;

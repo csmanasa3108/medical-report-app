@@ -160,6 +160,28 @@ export type VaultTrendPoint = {
   reportDate: string | null;
 };
 
+export type VaultTrendTest = {
+  testId: string;
+  canonicalName: string | null;
+  displayName: string;
+  name?: string | null;
+  defaultUnit: string | null;
+  category: string | null;
+  pointCount: number;
+  unit: string | null;
+};
+
+export type VaultTrend = {
+  testId: string;
+  testName: string | null;
+  unit: string | null;
+  points: VaultTrendPoint[];
+  latestValue: number | null;
+  previousValue: number | null;
+  absoluteChange: number | null;
+  percentChange: number | null;
+};
+
 export type VaultReportFilters = {
   patientId?: string | null;
 };
@@ -173,6 +195,14 @@ export type VaultParsedObservationFilters = {
 export type VaultConfirmedObservationFilters = {
   patientId?: string | null;
   testId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+export type VaultTrendFilters = {
+  patientId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
 };
 
 export type VaultAuditEventFilters = {

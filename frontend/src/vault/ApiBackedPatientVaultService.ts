@@ -8,6 +8,7 @@ import {
   getParsedObservations,
   getReport as getBackendReport,
   getReports,
+  getTests,
   parseReportObservations,
   rejectParsedObservation,
   updateParsedObservation as updateBackendParsedObservation,
@@ -20,6 +21,7 @@ import type {
   ParsedObservationResponse,
   ParsedObservationReviewResponse,
   ReportResponse,
+  TestCatalogResponse,
   UpdateParsedObservationRequest
 } from "../api/client";
 import type { PatientVaultService } from "./PatientVaultService";
@@ -37,6 +39,9 @@ import type {
   VaultReportFilters,
   VaultReportUploadMetadata,
   VaultResourceStatus,
+  VaultTrend,
+  VaultTrendFilters,
+  VaultTrendTest,
   VaultTrendPoint
 } from "./models";
 
@@ -234,6 +239,76 @@ function mapTrendPoint(
   };
 }
 
+function mapTrendResponse(
+  trend: {
+    testId: string;
+    testName?: string | null;
+    unit: string | null;
+    points: LabTrendPointResponse[];
+    latestValue?: number | null;
+    previousValue?: number | null;
+    absoluteChange?: number | null;
+    percentChange?: number | null;
+  },
+  fallbackTestName: string
+): VaultTrend {
+  return {
+    testId: trend.testId,
+    testName: trend.testName ?? fallbackTestName,
+    unit: trend.unit,
+    points: trend.points.map((point) =>
+      mapTrendPoint(trend.testId, trend.testName ?? fallbackTestName, point)
+    ),
+    latestValue: trend.latestValue ?? null,
+    previousValue: trend.previousValue ?? null,
+    absoluteChange: trend.absoluteChange ?? null,
+    percentChange: trend.percentChange ?? null
+  };
+}
+
+function hasUsableTrendPoint(point: VaultTrendPoint) {
+  return Boolean(point.observedAt) && Number.isFinite(Number(point.numericValue));
+}
+
+function isInDateRange(
+  observedAt: string | null,
+  filters: VaultTrendFilters | VaultConfirmedObservationFilters
+) {
+  if (!observedAt) {
+    return false;
+  }
+
+  if (filters.startDate && observedAt < filters.startDate) {
+    return false;
+  }
+
+  if (filters.endDate && observedAt > filters.endDate) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterTrendPoints(points: VaultTrendPoint[], filters: VaultTrendFilters = {}) {
+  return points.filter((point) => isInDateRange(point.observedAt, filters));
+}
+
+function mapAvailableTrendTest(
+  test: TestCatalogResponse,
+  trend: VaultTrend
+): VaultTrendTest {
+  return {
+    testId: test.id,
+    canonicalName: test.canonicalName,
+    displayName: test.displayName || test.canonicalName,
+    name: test.name ?? null,
+    defaultUnit: test.defaultUnit,
+    category: test.category,
+    pointCount: trend.points.filter(hasUsableTrendPoint).length,
+    unit: trend.unit ?? test.defaultUnit
+  };
+}
+
 function mapAuditEvent(event: AuditEventResponse): VaultAuditEvent {
   return {
     resourceType: "AuditEvent",
@@ -406,12 +481,9 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
     }
 
     const trend = await getLabTrend(filters.testId, filters.patientId);
-    return trend.points.map((point) => {
-      const trendPoint = mapTrendPoint(
-        trend.testId,
-        trend.testName ?? filters.testId ?? "",
-        point
-      );
+    return mapTrendResponse(trend, filters.testId ?? "").points
+      .filter((point) => isInDateRange(point.observedAt, filters))
+      .map((trendPoint) => {
       const timestamp = nowIso();
 
       return {
@@ -445,11 +517,37 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
     throw unsupported("saveConfirmedObservation");
   }
 
-  async listTrendPoints(testId: string) {
-    const trend = await getLabTrend(testId);
-    return trend.points.map((point) =>
-      mapTrendPoint(trend.testId, trend.testName ?? testId, point)
+  async listTrendPoints(testId: string, filters: VaultTrendFilters = {}) {
+    const trend = await this.getTrendForTest(testId, filters);
+    return trend.points;
+  }
+
+  async listAvailableTrendTests(filters: VaultTrendFilters = {}) {
+    const tests = await getTests();
+    const trendResults = await Promise.allSettled(
+      tests.map((test) => this.getTrendForTest(test.id, filters))
     );
+
+    return tests.flatMap((test, index) => {
+      const trendResult = trendResults[index];
+
+      if (trendResult.status !== "fulfilled") {
+        return [];
+      }
+
+      const availableTrendTest = mapAvailableTrendTest(test, trendResult.value);
+      return availableTrendTest.pointCount > 0 ? [availableTrendTest] : [];
+    });
+  }
+
+  async getTrendForTest(testId: string, filters: VaultTrendFilters = {}) {
+    const trend = await getLabTrend(testId, filters.patientId);
+    const mappedTrend = mapTrendResponse(trend, testId);
+
+    return {
+      ...mappedTrend,
+      points: filterTrendPoints(mappedTrend.points, filters)
+    };
   }
 
   async listAuditEvents(filters: VaultAuditEventFilters = {}) {
