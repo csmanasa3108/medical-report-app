@@ -1,4 +1,16 @@
 import type { PatientVaultService } from "./PatientVaultService";
+import {
+  decryptJsonWithKey,
+  deriveKeyFromStoredSalt,
+  encryptJson,
+  encryptJsonWithKey
+} from "./crypto/vaultCrypto";
+import {
+  loadEncryptedVaultBlob,
+  parseSerializedEncryptedVault,
+  saveEncryptedVaultBlob,
+  hasEncryptedVaultBlob
+} from "./local/encryptedVaultStorage";
 import type {
   PatientVaultManifest,
   SerializedPatientVault,
@@ -20,16 +32,22 @@ import type {
 } from "./models";
 
 const LOCAL_VAULT_SCHEMA_VERSION = "2026-08-24.local-v1";
-const LOCAL_VAULT_STORAGE_KEY = "soverahealth.patientVault.local";
 
 type LocalVaultSnapshot = {
   manifest: PatientVaultManifest;
   reports: VaultReportDocument[];
-  diagnosticReports: unknown[];
   parsedObservations: VaultParsedObservationReviewItem[];
-  observations: VaultObservation[];
+  confirmedObservations: VaultObservation[];
   auditEvents: VaultAuditEvent[];
 };
+
+type StoredLocalVaultSnapshot = Partial<LocalVaultSnapshot> & {
+  observations?: VaultObservation[];
+};
+
+let unlockedSnapshot: LocalVaultSnapshot | null = null;
+let activeEncryptionKey: CryptoKey | null = null;
+let activeSalt: string | null = null;
 
 function nowIso() {
   return new Date().toISOString();
@@ -54,8 +72,8 @@ function createEmptyManifest(): PatientVaultManifest {
     schemaVersion: LOCAL_VAULT_SCHEMA_VERSION,
     createdAt: timestamp,
     updatedAt: timestamp,
-    encrypted: false,
-    storageProvider: "localStorage",
+    encrypted: true,
+    storageProvider: "localStorage:aes-gcm",
     documents: [],
     counts: {
       documentReferences: 0,
@@ -71,17 +89,10 @@ function createEmptySnapshot(): LocalVaultSnapshot {
   return {
     manifest: createEmptyManifest(),
     reports: [],
-    diagnosticReports: [],
     parsedObservations: [],
-    observations: [],
+    confirmedObservations: [],
     auditEvents: []
   };
-}
-
-function assertBrowserStorageAvailable() {
-  if (typeof window === "undefined" || !window.localStorage) {
-    throw new Error("Local patient vault requires browser localStorage.");
-  }
 }
 
 function byNewestCreatedAt<T extends { createdAt?: string | null }>(left: T, right: T) {
@@ -96,8 +107,8 @@ function updateSnapshotManifest(snapshot: LocalVaultSnapshot): LocalVaultSnapsho
     manifest: {
       ...snapshot.manifest,
       updatedAt,
-      encrypted: false,
-      storageProvider: "localStorage",
+      encrypted: true,
+      storageProvider: "localStorage:aes-gcm",
       documents: snapshot.reports.map((report) => ({
         documentReferenceId:
           report.documentReferenceId ?? report.reportId ?? createId("document"),
@@ -108,8 +119,8 @@ function updateSnapshotManifest(snapshot: LocalVaultSnapshot): LocalVaultSnapsho
       })),
       counts: {
         documentReferences: snapshot.reports.length,
-        diagnosticReports: snapshot.diagnosticReports.length,
-        observations: snapshot.observations.length,
+        diagnosticReports: 0,
+        observations: snapshot.confirmedObservations.length,
         reviewItems: snapshot.parsedObservations.length,
         auditEvents: snapshot.auditEvents.length
       }
@@ -117,15 +128,13 @@ function updateSnapshotManifest(snapshot: LocalVaultSnapshot): LocalVaultSnapsho
   };
 }
 
-function parseSnapshot(serializedVault: string): LocalVaultSnapshot {
-  const parsed = JSON.parse(serializedVault) as Partial<LocalVaultSnapshot>;
-
+function normalizeSnapshot(parsed: StoredLocalVaultSnapshot): LocalVaultSnapshot {
   return updateSnapshotManifest({
     manifest: parsed.manifest ?? createEmptyManifest(),
     reports: parsed.reports ?? [],
-    diagnosticReports: parsed.diagnosticReports ?? [],
     parsedObservations: parsed.parsedObservations ?? [],
-    observations: parsed.observations ?? [],
+    confirmedObservations:
+      parsed.confirmedObservations ?? parsed.observations ?? [],
     auditEvents: parsed.auditEvents ?? []
   });
 }
@@ -136,7 +145,7 @@ function matchesPatient(patientUserId: string | null, patientId?: string | null)
 
 function localVaultUnsupported(operation: string): Error {
   return new Error(
-    `${operation} is not implemented for local patient vault mode yet. Local mode is unencrypted and development-only.`
+    `${operation} is not implemented for local patient vault mode yet. Local mode is encrypted but development-only.`
   );
 }
 
@@ -159,13 +168,54 @@ function isInDateRange(
   return true;
 }
 
-export class LocalPatientVaultService implements PatientVaultService {
-  private readonly storageKey: string;
+export function isLocalPatientVaultUnlocked() {
+  return unlockedSnapshot !== null && activeEncryptionKey !== null;
+}
 
-  constructor(storageKey = LOCAL_VAULT_STORAGE_KEY) {
-    this.storageKey = storageKey;
+export function hasLocalPatientVault() {
+  return hasEncryptedVaultBlob();
+}
+
+export async function unlockLocalPatientVault(passphrase: string) {
+  if (!passphrase) {
+    throw new Error("Enter a passphrase to unlock the local vault.");
   }
 
+  const encryptedBlob = loadEncryptedVaultBlob();
+
+  if (encryptedBlob) {
+    const encryptionKey = await deriveKeyFromStoredSalt(
+      passphrase,
+      encryptedBlob.kdf.salt
+    );
+    const decryptedSnapshot = await decryptJsonWithKey<StoredLocalVaultSnapshot>(
+      encryptedBlob,
+      encryptionKey
+    );
+    unlockedSnapshot = normalizeSnapshot(decryptedSnapshot);
+    activeEncryptionKey = encryptionKey;
+    activeSalt = encryptedBlob.kdf.salt;
+    return unlockedSnapshot.manifest;
+  }
+
+  unlockedSnapshot = createEmptySnapshot();
+  const encryptedNewVault = await encryptJson(unlockedSnapshot, passphrase);
+  saveEncryptedVaultBlob(encryptedNewVault);
+  activeEncryptionKey = await deriveKeyFromStoredSalt(
+    passphrase,
+    encryptedNewVault.kdf.salt
+  );
+  activeSalt = encryptedNewVault.kdf.salt;
+  return unlockedSnapshot.manifest;
+}
+
+export function lockLocalPatientVault() {
+  unlockedSnapshot = null;
+  activeEncryptionKey = null;
+  activeSalt = null;
+}
+
+export class LocalPatientVaultService implements PatientVaultService {
   async getManifest() {
     return this.readSnapshot().manifest;
   }
@@ -197,7 +247,7 @@ export class LocalPatientVaultService implements PatientVaultService {
       reportToSave,
       (candidate) => candidate.reportId === reportToSave.reportId
     );
-    this.writeSnapshot(snapshot);
+    await this.writeSnapshot(snapshot);
     return reportToSave;
   }
 
@@ -228,7 +278,10 @@ export class LocalPatientVaultService implements PatientVaultService {
     snapshot.parsedObservations = snapshot.parsedObservations.filter(
       (item) => item.reportId !== reportId
     );
-    this.writeSnapshot(snapshot);
+    snapshot.confirmedObservations = snapshot.confirmedObservations.filter(
+      (observation) => observation.reportId !== reportId
+    );
+    await this.writeSnapshot(snapshot);
   }
 
   async listParsedObservations(filters: VaultParsedObservationFilters = {}) {
@@ -267,7 +320,7 @@ export class LocalPatientVaultService implements PatientVaultService {
       (candidate) =>
         candidate.parsedObservationId === itemToSave.parsedObservationId
     );
-    this.writeSnapshot(snapshot);
+    await this.writeSnapshot(snapshot);
     return itemToSave;
   }
 
@@ -317,12 +370,63 @@ export class LocalPatientVaultService implements PatientVaultService {
       updatedItem,
       (candidate) => candidate.parsedObservationId === id
     );
-    this.writeSnapshot(snapshot);
+    await this.writeSnapshot(snapshot);
     return updatedItem;
   }
 
-  async confirmParsedObservation(_id: string): Promise<VaultObservation> {
-    throw localVaultUnsupported("confirmParsedObservation");
+  async confirmParsedObservation(id: string): Promise<VaultObservation> {
+    const snapshot = this.readSnapshot();
+    const existingItem = snapshot.parsedObservations.find(
+      (item) => item.parsedObservationId === id
+    );
+
+    if (!existingItem) {
+      throw new Error("Parsed observation was not found in the local vault.");
+    }
+
+    const timestamp = nowIso();
+    const observation: VaultObservation = {
+      resourceType: "Observation",
+      observationId:
+        existingItem.confirmedObservationId ?? createId("observation"),
+      patientUserId: existingItem.patientUserId,
+      testId: existingItem.testId,
+      testName: existingItem.testName ?? "Unknown test",
+      observedAt: existingItem.observedAt,
+      valueText: existingItem.valueText,
+      numericValue: existingItem.numericValue,
+      unit: existingItem.unit,
+      referenceRange: existingItem.referenceRange,
+      abnormalFlag: existingItem.abnormalFlag,
+      status: "CONFIRMED",
+      sourceType: existingItem.reportId ? "REPORT" : "MANUAL",
+      reportId: existingItem.reportId,
+      reportOriginalFilename: existingItem.reportOriginalFilename,
+      labName: existingItem.labName,
+      reportDate: existingItem.reportDate,
+      parsedObservationId: existingItem.parsedObservationId,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+    const updatedItem: VaultParsedObservationReviewItem = {
+      ...existingItem,
+      status: "CONFIRMED",
+      confirmedObservationId: observation.observationId,
+      updatedAt: timestamp
+    };
+
+    snapshot.confirmedObservations = upsertBy(
+      snapshot.confirmedObservations,
+      observation,
+      (candidate) => candidate.observationId === observation.observationId
+    );
+    snapshot.parsedObservations = upsertBy(
+      snapshot.parsedObservations,
+      updatedItem,
+      (candidate) => candidate.parsedObservationId === id
+    );
+    await this.writeSnapshot(snapshot);
+    return observation;
   }
 
   async rejectParsedObservation(id: string) {
@@ -350,7 +454,7 @@ export class LocalPatientVaultService implements PatientVaultService {
       updatedItem,
       (candidate) => candidate.parsedObservationId === id
     );
-    this.writeSnapshot(snapshot);
+    await this.writeSnapshot(snapshot);
     return updatedItem;
   }
 
@@ -359,7 +463,7 @@ export class LocalPatientVaultService implements PatientVaultService {
   ) {
     const snapshot = this.readSnapshot();
 
-    return snapshot.observations
+    return snapshot.confirmedObservations
       .filter((observation) =>
         matchesPatient(observation.patientUserId, filters.patientId)
       )
@@ -381,19 +485,19 @@ export class LocalPatientVaultService implements PatientVaultService {
       updatedAt: timestamp
     };
 
-    snapshot.observations = upsertBy(
-      snapshot.observations,
+    snapshot.confirmedObservations = upsertBy(
+      snapshot.confirmedObservations,
       observationToSave,
       (candidate) => candidate.observationId === observationToSave.observationId
     );
-    this.writeSnapshot(snapshot);
+    await this.writeSnapshot(snapshot);
     return observationToSave;
   }
 
   async listTrendPoints(testId: string, filters: VaultTrendFilters = {}) {
     const snapshot = this.readSnapshot();
 
-    return snapshot.observations
+    return snapshot.confirmedObservations
       .filter((observation) => observation.testId === testId)
       .filter((observation) => observation.status === "CONFIRMED")
       .filter((observation) =>
@@ -410,7 +514,7 @@ export class LocalPatientVaultService implements PatientVaultService {
     const snapshot = this.readSnapshot();
     const observationsByTestId = new Map<string, VaultObservation[]>();
 
-    for (const observation of snapshot.observations) {
+    for (const observation of snapshot.confirmedObservations) {
       if (
         observation.status !== "CONFIRMED" ||
         !observation.testId ||
@@ -458,46 +562,76 @@ export class LocalPatientVaultService implements PatientVaultService {
     } satisfies VaultTrend;
   }
 
-  async listAuditEvents(
-    _filters: VaultAuditEventFilters = {}
-  ): Promise<VaultAuditEvent[]> {
-    throw localVaultUnsupported("local vault audit events");
+  async listAuditEvents(filters: VaultAuditEventFilters = {}) {
+    const snapshot = this.readSnapshot();
+    const limit = filters.limit ?? 50;
+
+    return snapshot.auditEvents
+      .filter((event) => matchesPatient(event.patientUserId, filters.patientId))
+      .filter((event) => !filters.action || event.action === filters.action)
+      .filter(
+        (event) =>
+          !filters.resourceType || event.resourceTypeName === filters.resourceType
+      )
+      .sort(byNewestCreatedAt)
+      .slice(0, limit);
   }
 
-  async recordAuditEvent(_event: VaultAuditEvent): Promise<VaultAuditEvent> {
-    throw localVaultUnsupported("local vault audit events");
+  async recordAuditEvent(event: VaultAuditEvent) {
+    const snapshot = this.readSnapshot();
+    const eventToSave: VaultAuditEvent = {
+      ...event,
+      auditEventId: event.auditEventId || createId("audit"),
+      createdAt: event.createdAt || nowIso()
+    };
+
+    snapshot.auditEvents = upsertBy(
+      snapshot.auditEvents,
+      eventToSave,
+      (candidate) => candidate.auditEventId === eventToSave.auditEventId
+    );
+    await this.writeSnapshot(snapshot);
+    return eventToSave;
   }
 
   async exportVault(): Promise<SerializedPatientVault> {
-    return JSON.stringify(this.readSnapshot());
+    const encryptedBlob = loadEncryptedVaultBlob();
+
+    if (!encryptedBlob) {
+      throw new Error("No encrypted local vault exists to export.");
+    }
+
+    return JSON.stringify(encryptedBlob);
   }
 
   async importVault(serializedVault: SerializedPatientVault) {
-    const snapshot = parseSnapshot(serializedVault);
-    this.writeSnapshot(snapshot);
+    const encryptedBlob = parseSerializedEncryptedVault(serializedVault);
+    saveEncryptedVaultBlob(encryptedBlob);
+    lockLocalPatientVault();
   }
 
   private readSnapshot() {
-    assertBrowserStorageAvailable();
-    const serializedSnapshot = window.localStorage.getItem(this.storageKey);
-
-    if (!serializedSnapshot) {
-      return createEmptySnapshot();
+    if (!unlockedSnapshot) {
+      throw new Error("Unlock the local encrypted vault before reading data.");
     }
 
-    try {
-      return parseSnapshot(serializedSnapshot);
-    } catch {
-      throw new Error("Local patient vault data is not valid JSON.");
-    }
+    return unlockedSnapshot;
   }
 
-  private writeSnapshot(snapshot: LocalVaultSnapshot) {
-    assertBrowserStorageAvailable();
-    window.localStorage.setItem(
-      this.storageKey,
-      JSON.stringify(updateSnapshotManifest(snapshot))
+  private async writeSnapshot(snapshot: LocalVaultSnapshot) {
+    if (!activeEncryptionKey || !activeSalt) {
+      throw new Error("Unlock the local encrypted vault before saving data.");
+    }
+
+    const normalizedSnapshot = updateSnapshotManifest(snapshot);
+    const encryptedBlob = await encryptJsonWithKey(
+      normalizedSnapshot,
+      activeEncryptionKey,
+      activeSalt,
+      loadEncryptedVaultBlob()
     );
+    saveEncryptedVaultBlob(encryptedBlob);
+    unlockedSnapshot = normalizedSnapshot;
   }
 }
 

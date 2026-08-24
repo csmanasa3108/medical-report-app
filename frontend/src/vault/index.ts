@@ -28,7 +28,13 @@ export type {
   VaultTrendPoint
 } from "./models";
 export { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";
-export { LocalPatientVaultService } from "./LocalPatientVaultService";
+export {
+  LocalPatientVaultService,
+  hasLocalPatientVault,
+  isLocalPatientVaultUnlocked,
+  lockLocalPatientVault,
+  unlockLocalPatientVault
+} from "./LocalPatientVaultService";
 export { getPatientVaultMode } from "./config";
 
 let patientVaultService: PatientVaultService | null = null;

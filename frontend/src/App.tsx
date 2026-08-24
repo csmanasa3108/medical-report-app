@@ -18,6 +18,7 @@ import ReviewQueuePage from "./pages/ReviewQueuePage";
 import TrendPage from "./pages/TrendPage";
 import TrendsPage from "./pages/TrendsPage";
 import soveraHealthWordmark from "./assets/brand/soverahealth-wordmark.png";
+import LocalVaultGate from "./vault/local/LocalVaultGate";
 
 type NavItem = {
   label: string;
@@ -104,112 +105,114 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <img
-            className="brand-logo"
-            src={soveraHealthWordmark}
-            alt="SoveraHealth"
-          />
-        </div>
-        <div className="header-controls">
-          <div className="dev-user-switcher" aria-label="Development user">
-            <span className="dev-user-kicker">DEV</span>
-            <select
-              aria-label="Select development user"
-              value={selectedDevUser.key}
-              onChange={handleDevUserChange}
-            >
-              {DEV_USERS.map((user) => (
-                <option key={user.key} value={user.key}>
-                  {user.label}
-                </option>
-              ))}
-            </select>
-            <span className="dev-user-role">{selectedDevUser.role}</span>
+    <LocalVaultGate>
+      <div className="app-shell">
+        <header className="app-header">
+          <div className="brand-lockup">
+            <img
+              className="brand-logo"
+              src={soveraHealthWordmark}
+              alt="SoveraHealth"
+            />
           </div>
-        </div>
-      </header>
+          <div className="header-controls">
+            <div className="dev-user-switcher" aria-label="Development user">
+              <span className="dev-user-kicker">DEV</span>
+              <select
+                aria-label="Select development user"
+                value={selectedDevUser.key}
+                onChange={handleDevUserChange}
+              >
+                {DEV_USERS.map((user) => (
+                  <option key={user.key} value={user.key}>
+                    {user.label}
+                  </option>
+                ))}
+              </select>
+              <span className="dev-user-role">{selectedDevUser.role}</span>
+            </div>
+          </div>
+        </header>
 
-      <div className="app-body">
-        <SidebarNavigation devUser={selectedDevUser} />
-        <main className="page-content" key={selectedDevUser.userId}>
-          <Routes>
-            <Route
-              path="/"
-              element={<DashboardPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/dashboard"
-              element={<DashboardPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/patients"
-              element={<PatientsPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/reports"
-              element={<ReportsListPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/reports/new"
-              element={
-                selectedDevUser.role === "PATIENT" ? (
-                  <NewReportPage />
-                ) : (
-                  <UnavailableForRolePage devUser={selectedDevUser} />
-                )
-              }
-            />
-            <Route
-              path="/upload"
-              element={
-                selectedDevUser.role === "PATIENT" ? (
-                  <NewReportPage />
-                ) : (
-                  <UnavailableForRolePage devUser={selectedDevUser} />
-                )
-              }
-            />
-            <Route
-              path="/reports/:reportId"
-              element={<ReportDetailPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/observations/new"
-              element={
-                selectedDevUser.role === "PATIENT" ? (
-                  <AddObservationPage />
-                ) : (
-                  <UnavailableForRolePage devUser={selectedDevUser} />
-                )
-              }
-            />
-            <Route
-              path="/care-team"
-              element={<CareTeamPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/trends"
-              element={<TrendsPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/review"
-              element={<ReviewQueuePage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/activity"
-              element={<ActivityPage devUser={selectedDevUser} />}
-            />
-            <Route
-              path="/tests/:testId/trend"
-              element={<TrendPage devUser={selectedDevUser} />}
-            />
-          </Routes>
-        </main>
+        <div className="app-body">
+          <SidebarNavigation devUser={selectedDevUser} />
+          <main className="page-content" key={selectedDevUser.userId}>
+            <Routes>
+              <Route
+                path="/"
+                element={<DashboardPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/dashboard"
+                element={<DashboardPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/patients"
+                element={<PatientsPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/reports"
+                element={<ReportsListPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/reports/new"
+                element={
+                  selectedDevUser.role === "PATIENT" ? (
+                    <NewReportPage />
+                  ) : (
+                    <UnavailableForRolePage devUser={selectedDevUser} />
+                  )
+                }
+              />
+              <Route
+                path="/upload"
+                element={
+                  selectedDevUser.role === "PATIENT" ? (
+                    <NewReportPage />
+                  ) : (
+                    <UnavailableForRolePage devUser={selectedDevUser} />
+                  )
+                }
+              />
+              <Route
+                path="/reports/:reportId"
+                element={<ReportDetailPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/observations/new"
+                element={
+                  selectedDevUser.role === "PATIENT" ? (
+                    <AddObservationPage />
+                  ) : (
+                    <UnavailableForRolePage devUser={selectedDevUser} />
+                  )
+                }
+              />
+              <Route
+                path="/care-team"
+                element={<CareTeamPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/trends"
+                element={<TrendsPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/review"
+                element={<ReviewQueuePage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/activity"
+                element={<ActivityPage devUser={selectedDevUser} />}
+              />
+              <Route
+                path="/tests/:testId/trend"
+                element={<TrendPage devUser={selectedDevUser} />}
+              />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </LocalVaultGate>
   );
 }
 

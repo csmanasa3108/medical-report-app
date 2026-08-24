@@ -32,19 +32,42 @@ Future modes may include encrypted local storage, encrypted export/import, and p
 
 This mode is a transition adapter, not the target patient-owned storage model.
 
-## Local Mode
+## Local Encrypted Mode
 
-`LocalPatientVaultService` stores a thin vault snapshot in `localStorage`.
+`LocalPatientVaultService` is a first encrypted local vault prototype for development. It is enabled only when `VITE_PATIENT_VAULT_MODE=local`; `api` remains the default.
+
+When local mode is enabled, the app shows an unlock/create screen before rendering patient data. The user enters a passphrase, and the browser derives a non-extractable AES key with Web Crypto:
+
+- PBKDF2
+- SHA-256
+- a random stored salt
+- AES-GCM for encryption
+- a fresh random IV for each encrypted save
+
+The local vault stores one encrypted JSON snapshot with:
+
+- `manifest`
+- `reports`
+- `parsedObservations`
+- `confirmedObservations`
+- `auditEvents`
+
+The encrypted vault blob is stored in `localStorage` under a development-only key. The stored blob contains encryption metadata such as salt, IV, KDF parameters, timestamps, and ciphertext. It must not contain readable report metadata, lab values, parsed observations, confirmed observations, audit event details, or plaintext vault JSON.
+
+The app does not store the plaintext passphrase, and the Web Crypto key is created as non-extractable. Decrypted vault data is kept only in memory after unlock and is not available after a page reload until the user unlocks again.
 
 Important limitations:
 
-- It is not encrypted.
 - It is not production-ready.
 - It must be used only with synthetic/demo data.
+- `localStorage` is not an ideal production vault storage layer.
 - Browser storage can be cleared by the user or browser.
-- It is not a backup, sync, or recovery strategy.
+- Losing the passphrase means the vault cannot be recovered.
+- Losing the browser/device can mean data loss without an encrypted export backup.
+- There is no server-side recovery.
+- Upload/PDF parsing still requires API mode for full behavior; local mode stores report metadata only for uploads.
 
-Encryption must be added before any real PHI is stored locally.
+Real PHI must not be stored in this prototype.
 
 Activity/Audit history now reads through `PatientVaultService`. In the final encrypted vault model, detailed patient-local audit events may live in the patient-owned vault, while central backend audit should be limited to metadata/control-plane events such as account, sharing, and key-envelope operations.
 
@@ -63,7 +86,7 @@ Recommended migration order:
 3. Move parsed observation report detail flows and Review Queue behind `PatientVaultService`. This has started.
 4. Route confirmed-observation and read-only trend workflows through `PatientVaultService`. This has started.
 5. Route Activity/Audit history through `PatientVaultService`. This has started.
-6. Add encrypted local vault storage.
+6. Add encrypted local vault storage. This has started as a development-only prototype.
 7. Move report parsing internals fully into the vault service implementation.
 8. Add encrypted export/import.
 9. Add patient-owned cloud vault connector support.
