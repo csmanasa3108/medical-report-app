@@ -7,7 +7,6 @@ import {
   getAuditEvents,
   getParsedObservationReviewQueue,
   getPatientClinicianAccess,
-  getReports,
   getSelectedAssignedPatientId,
   setSelectedAssignedPatientId
 } from "../api/client";
@@ -16,9 +15,10 @@ import type {
   AuditEventResponse,
   DevUser,
   ParsedObservationReviewResponse,
-  PatientClinicianAccessResponse,
-  ReportResponse
+  PatientClinicianAccessResponse
 } from "../api/client";
+import { getPatientVaultService } from "../vault";
+import type { VaultReportDocument } from "../vault";
 
 type DashboardAction = {
   title: string;
@@ -39,7 +39,7 @@ type SummaryCard = {
 };
 
 type PatientDashboardData = {
-  reports: ReportResponse[];
+  reports: VaultReportDocument[];
   reviewItems: ParsedObservationReviewResponse[];
   careTeamAccess: PatientClinicianAccessResponse[];
   activityEvents: AuditEventResponse[];
@@ -185,10 +185,10 @@ function formatAction(action: string) {
   return ACTION_LABELS[action] ?? formatLabel(action);
 }
 
-function getLatestReport(reports: ReportResponse[]) {
+function getLatestReport(reports: VaultReportDocument[]) {
   return [...reports].sort((first, second) => {
-    const firstTime = new Date(first.createdAt).getTime();
-    const secondTime = new Date(second.createdAt).getTime();
+    const firstTime = new Date(first.uploadedAt ?? "").getTime();
+    const secondTime = new Date(second.uploadedAt ?? "").getTime();
     return secondTime - firstTime;
   })[0];
 }
@@ -479,7 +479,7 @@ function PatientDashboard() {
     setErrors({});
 
     Promise.allSettled([
-      getReports(),
+      getPatientVaultService().listReports(),
       getParsedObservationReviewQueue(),
       getPatientClinicianAccess(),
       getAuditEvents()

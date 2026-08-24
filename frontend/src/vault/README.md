@@ -8,7 +8,7 @@ Today, most medical data flows directly through backend APIs. The target model m
 
 Future page migrations should read and write these data types through `PatientVaultService` instead of calling backend APIs directly:
 
-- Reports and report document metadata.
+- Reports, report document metadata, upload, and delete actions.
 - Parsed observation review items.
 - Confirmed observations.
 - Trend points.
@@ -21,14 +21,14 @@ The hosted backend should eventually stop storing raw reports, extracted report 
 
 `VITE_PATIENT_VAULT_MODE` selects the adapter.
 
-- `api`: default. Keeps current app behavior available through an API-backed adapter. Existing pages are not migrated yet, so current routes continue to use the existing API client directly.
+- `api`: default. Keeps current app behavior available through an API-backed adapter. Report list, report detail, upload, delete, and the patient dashboard report summary now use this service in API mode.
 - `local`: development prototype using browser `localStorage`.
 
 Future modes may include encrypted local storage, encrypted export/import, and patient-owned cloud vault connectors.
 
 ## API Mode
 
-`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Some write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
+`ApiBackedPatientVaultService` maps available existing backend API responses into vault model types. Report list/detail/upload/delete still use the existing backend in this mode, so API mode remains a centralized demo path and can still store report PHI in the backend. Some non-report write/export operations intentionally throw a clear unsupported error because the current backend does not expose a direct safe equivalent.
 
 This mode is a transition adapter, not the target patient-owned storage model.
 
@@ -57,11 +57,12 @@ The server also must not store patient private keys. Future clinician sharing sh
 Recommended migration order:
 
 1. Keep existing pages on current backend APIs.
-2. Route read-only trend and parsed observation workflows through `PatientVaultService`.
-3. Add encrypted local vault storage.
-4. Move report upload and parsing workflows behind the vault service.
-5. Add encrypted export/import.
-6. Add patient-owned cloud vault connector support.
-7. Add clinician key wrapping and scoped sharing.
+2. Move report list/detail/upload/delete and simple report summaries behind `PatientVaultService`. This has started.
+3. Route read-only trend and parsed observation workflows through `PatientVaultService`.
+4. Add encrypted local vault storage.
+5. Move report parsing workflows behind the vault service.
+6. Add encrypted export/import.
+7. Add patient-owned cloud vault connector support.
+8. Add clinician key wrapping and scoped sharing.
 
 Until those steps are complete, hosted demos should use synthetic data only.

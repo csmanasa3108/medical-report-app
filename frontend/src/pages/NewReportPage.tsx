@@ -1,6 +1,6 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { uploadReport } from "../api/client";
+import { getPatientVaultService } from "../vault";
 
 type ReportFormState = {
   reportDate: string;
@@ -63,8 +63,7 @@ function NewReportPage() {
     setIsSubmitting(true);
 
     try {
-      const createdReport = await uploadReport({
-        file: selectedFile,
+      const createdReport = await getPatientVaultService().uploadReport(selectedFile, {
         reportDate: form.reportDate,
         labName
       });
@@ -74,7 +73,7 @@ function NewReportPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      navigate(`/reports/${createdReport.id}`, {
+      navigate(`/reports/${createdReport.reportId}`, {
         state: {
           successMessage:
             "Report uploaded and parsed. Review observations before confirming."

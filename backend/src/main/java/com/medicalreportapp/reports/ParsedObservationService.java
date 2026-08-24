@@ -275,20 +275,22 @@ class ParsedObservationService {
 
     private static List<ParsedObservation> deduplicateParsedObservations(
         List<ParsedObservation> candidates,
-        List<ParsedObservation> confirmedObservations
+        List<ParsedObservation> reviewedObservations
     ) {
-        Map<ParsedObservationDeduplicationKey, ParsedObservation> uniqueObservations = new LinkedHashMap<>();
-        for (ParsedObservation confirmedObservation : confirmedObservations) {
-            uniqueObservations.put(ParsedObservationDeduplicationKey.from(confirmedObservation), confirmedObservation);
+        Set<ParsedObservationSourceKey> reviewedSourceKeys = new HashSet<>();
+        for (ParsedObservation reviewedObservation : reviewedObservations) {
+            reviewedSourceKeys.add(ParsedObservationSourceKey.from(reviewedObservation));
         }
 
+        Map<ParsedObservationDeduplicationKey, ParsedObservation> uniqueCandidates = new LinkedHashMap<>();
         for (ParsedObservation candidate : candidates) {
-            uniqueObservations.putIfAbsent(ParsedObservationDeduplicationKey.from(candidate), candidate);
+            if (reviewedSourceKeys.contains(ParsedObservationSourceKey.from(candidate))) {
+                continue;
+            }
+            uniqueCandidates.putIfAbsent(ParsedObservationDeduplicationKey.from(candidate), candidate);
         }
 
-        return uniqueObservations.values().stream()
-            .filter(observation -> observation.getStatus() == ParsedObservationStatus.NEEDS_REVIEW)
-            .toList();
+        return List.copyOf(uniqueCandidates.values());
     }
 
     private void cleanupDuplicateNeedsReviewObservations(UUID reportId) {
@@ -452,6 +454,26 @@ class ParsedObservationService {
 
         private int numericValueHash() {
             return numericValue == null ? 0 : numericValue.stripTrailingZeros().hashCode();
+        }
+    }
+
+    private record ParsedObservationSourceKey(
+        UUID matchedTestId,
+        UUID reportId,
+        String rawTestName,
+        LocalDate observedAt,
+        String unit
+    ) {
+
+        private static ParsedObservationSourceKey from(ParsedObservation observation) {
+            UUID matchedTestId = observation.getMatchedTestId();
+            return new ParsedObservationSourceKey(
+                matchedTestId,
+                observation.getReportId(),
+                matchedTestId == null ? ParsedObservationDeduplicationKey.normalizeRawTestName(observation.getRawTestName()) : null,
+                observation.getObservedAt(),
+                ParsedObservationDeduplicationKey.trimToNull(observation.getUnit())
+            );
         }
     }
 }

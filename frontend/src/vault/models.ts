@@ -55,6 +55,11 @@ export type VaultReportDocument = {
   sourceType?: "UPLOAD" | "IMPORT" | string;
 };
 
+export type VaultReportUploadMetadata = {
+  reportDate?: string | null;
+  labName?: string | null;
+};
+
 export type VaultDiagnosticReport = {
   resourceType: "DiagnosticReport";
   diagnosticReportId: string;

@@ -8,7 +8,8 @@ import {
   getParsedObservations,
   getReport as getBackendReport,
   getReports,
-  rejectParsedObservation
+  rejectParsedObservation,
+  uploadReport as uploadBackendReport
 } from "../api/client";
 import type {
   AuditEventResponse,
@@ -30,6 +31,7 @@ import type {
   VaultParsedObservationReviewItem,
   VaultReportDocument,
   VaultReportFilters,
+  VaultReportUploadMetadata,
   VaultResourceStatus,
   VaultTrendPoint
 } from "./models";
@@ -241,6 +243,16 @@ export class ApiBackedPatientVaultService implements PatientVaultService {
     });
 
     return mapReportResponse(savedReport, report.patientUserId);
+  }
+
+  async uploadReport(file: File, metadata: VaultReportUploadMetadata = {}) {
+    const uploadedReport = await uploadBackendReport({
+      file,
+      reportDate: metadata.reportDate ?? "",
+      labName: metadata.labName ?? ""
+    });
+
+    return mapReportResponse(uploadedReport);
   }
 
   async deleteReport(reportId: string) {

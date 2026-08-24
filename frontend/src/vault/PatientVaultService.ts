@@ -9,6 +9,7 @@ import type {
   VaultParsedObservationReviewItem,
   VaultReportDocument,
   VaultReportFilters,
+  VaultReportUploadMetadata,
   VaultResourceStatus,
   VaultTrendPoint
 } from "./models";
@@ -19,6 +20,10 @@ export type PatientVaultService = {
   listReports(filters?: VaultReportFilters): Promise<VaultReportDocument[]>;
   getReport(reportId: string): Promise<VaultReportDocument | null>;
   saveReport(report: VaultReportDocument): Promise<VaultReportDocument>;
+  uploadReport(
+    file: File,
+    metadata?: VaultReportUploadMetadata
+  ): Promise<VaultReportDocument>;
   deleteReport(reportId: string): Promise<void>;
 
   listParsedObservations(

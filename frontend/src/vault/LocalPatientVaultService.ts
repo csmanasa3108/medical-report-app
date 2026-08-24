@@ -10,6 +10,7 @@ import type {
   VaultParsedObservationReviewItem,
   VaultReportDocument,
   VaultReportFilters,
+  VaultReportUploadMetadata,
   VaultResourceStatus,
   VaultTrendPoint
 } from "./models";
@@ -169,6 +170,25 @@ export class LocalPatientVaultService implements PatientVaultService {
     );
     this.writeSnapshot(snapshot);
     return reportToSave;
+  }
+
+  async uploadReport(file: File, metadata: VaultReportUploadMetadata = {}) {
+    return this.saveReport({
+      resourceType: "DocumentReference",
+      reportId: createId("report"),
+      patientUserId: null,
+      documentReferenceId: createId("document"),
+      diagnosticReportId: null,
+      originalFilename: file.name,
+      contentType: file.type || "application/pdf",
+      encryptedBlobRef: null,
+      sha256: null,
+      labName: metadata.labName ?? null,
+      reportDate: metadata.reportDate ?? null,
+      uploadedAt: nowIso(),
+      status: "UPLOADED",
+      sourceType: "UPLOAD"
+    });
   }
 
   async deleteReport(reportId: string) {

@@ -1,19 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  deleteReport,
   formatLoadErrorMessage,
   getAssignedPatients,
   getParsedObservationReviewQueue,
-  getReports,
   getSelectedAssignedPatientId
 } from "../api/client";
-import type {
-  AssignedPatientResponse,
-  DevUser,
-  ReportResponse
-} from "../api/client";
+import type { AssignedPatientResponse, DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
+import { getPatientVaultService } from "../vault";
+import type { VaultReportDocument } from "../vault";
 
 type ReportsLocationState = {
   successMessage?: string;
@@ -52,7 +48,11 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "Not provided";
+  }
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -68,10 +68,10 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-function getLatestReport(reports: ReportResponse[]) {
+function getLatestReport(reports: VaultReportDocument[]) {
   return [...reports].sort((first, second) => {
-    const firstTime = new Date(first.createdAt).getTime();
-    const secondTime = new Date(second.createdAt).getTime();
+    const firstTime = new Date(first.uploadedAt ?? "").getTime();
+    const secondTime = new Date(second.uploadedAt ?? "").getTime();
     return secondTime - firstTime;
   })[0];
 }
@@ -83,7 +83,7 @@ function buildSummaryCards({
   reviewError
 }: {
   isLoading: boolean;
-  reports: ReportResponse[];
+  reports: VaultReportDocument[];
   reviewCount: number | null;
   reviewError: string;
 }): ReportSummaryCard[] {
@@ -127,7 +127,7 @@ function buildSummaryCards({
       detailTitle: latestReport?.originalFilename,
       truncateDetail: Boolean(latestReport),
       compactValue: true,
-      to: latestReport ? `/reports/${latestReport.id}` : "/upload",
+      to: latestReport ? `/reports/${latestReport.reportId}` : "/upload",
       tone: "neutral"
     },
     {
@@ -229,7 +229,7 @@ function SelectPatientState() {
 function ReportsListPage({ devUser }: ReportsListPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [reports, setReports] = useState<ReportResponse[]>([]);
+  const [reports, setReports] = useState<VaultReportDocument[]>([]);
   const [assignedPatients, setAssignedPatients] = useState<
     AssignedPatientResponse[]
   >([]);
@@ -305,7 +305,7 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
     }
 
     Promise.allSettled([
-      getReports(selectedPatientId),
+      getPatientVaultService().listReports({ patientId: selectedPatientId }),
       getParsedObservationReviewQueue(selectedPatientId)
     ])
       .then(([reportsResult, reviewResult]) => {
@@ -368,8 +368,10 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
     setSuccessMessage("");
 
     try {
-      await deleteReport(reportId);
-      const reportList = await getReports();
+      await getPatientVaultService().deleteReport(reportId);
+      const reportList = await getPatientVaultService().listReports({
+        patientId: selectedPatientId
+      });
       setReports(reportList);
       setSuccessMessage("Report deleted.");
     } catch (error: unknown) {
@@ -498,19 +500,19 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
                   </thead>
                   <tbody>
                     {reports.map((report) => (
-                      <tr key={report.id}>
+                      <tr key={report.reportId}>
                         <td className="report-filename">
                           <Link
                             className="report-title-link"
                             title={report.originalFilename}
-                            to={`/reports/${report.id}`}
+                            to={`/reports/${report.reportId}`}
                           >
                             {report.originalFilename}
                           </Link>
                         </td>
                         <td>{report.labName || "Not provided"}</td>
                         <td>{formatDate(report.reportDate)}</td>
-                        <td>{formatDateTime(report.createdAt)}</td>
+                        <td>{formatDateTime(report.uploadedAt)}</td>
                         <td>
                           <StatusBadge status={report.status} />
                         </td>
@@ -518,7 +520,7 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
                           <div className="reports-action-group">
                             <Link
                               className="button-link secondary table-action-button"
-                              to={`/reports/${report.id}`}
+                              to={`/reports/${report.reportId}`}
                             >
                               Open
                             </Link>
@@ -532,10 +534,10 @@ function ReportsListPage({ devUser }: ReportsListPageProps) {
                               <button
                                 className="action-button secondary danger table-action-button"
                                 type="button"
-                                onClick={() => handleDeleteReport(report.id)}
+                                onClick={() => handleDeleteReport(report.reportId)}
                                 disabled={deletingReportId !== null}
                               >
-                                {deletingReportId === report.id
+                                {deletingReportId === report.reportId
                                   ? "Deleting..."
                                   : "Delete"}
                               </button>

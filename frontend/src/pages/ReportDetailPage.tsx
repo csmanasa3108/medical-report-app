@@ -2,21 +2,20 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   confirmParsedObservation,
-  deleteReport,
   formatLoadErrorMessage,
   getParsedObservations,
-  getReport,
   getTests,
   parseReportObservations,
   ParsedObservationResponse,
   rejectParsedObservation,
-  ReportResponse,
   TestCatalogResponse,
   updateParsedObservation,
   UpdateParsedObservationRequest
 } from "../api/client";
 import type { DevUser } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
+import { getPatientVaultService } from "../vault";
+import type { VaultReportDocument } from "../vault";
 
 type ParsedObservationEditForm = {
   rawTestName: string;
@@ -54,7 +53,11 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "Not provided";
+  }
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -189,7 +192,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
   const { reportId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const [report, setReport] = useState<ReportResponse | null>(null);
+  const [report, setReport] = useState<VaultReportDocument | null>(null);
   const [parsedObservations, setParsedObservations] = useState<
     ParsedObservationResponse[]
   >([]);
@@ -245,9 +248,19 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setParsedErrorMessage("");
     setActionMessage("");
 
-    Promise.all([getReport(reportId), getParsedObservations(reportId)])
+    Promise.all([
+      getPatientVaultService().getReport(reportId),
+      getParsedObservations(reportId)
+    ])
       .then(([reportResponse, parsedObservationList]) => {
         if (!isCurrent) {
+          return;
+        }
+
+        if (!reportResponse) {
+          setErrorMessage("Report was not found.");
+          setReport(null);
+          setParsedObservations([]);
           return;
         }
 
@@ -311,9 +324,13 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     }
 
     const [reportResponse, parsedObservationList] = await Promise.all([
-      getReport(reportId),
+      getPatientVaultService().getReport(reportId),
       getParsedObservations(reportId)
     ]);
+
+    if (!reportResponse) {
+      throw new Error("Report was not found.");
+    }
 
     setReport(reportResponse);
     setParsedObservations(parsedObservationList);
@@ -459,7 +476,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
     setActionMessage("");
 
     try {
-      await deleteReport(reportId);
+      await getPatientVaultService().deleteReport(reportId);
       navigate("/reports", {
         state: { successMessage: "Report deleted." }
       });
@@ -559,7 +576,7 @@ function ReportDetailPage({ devUser }: ReportDetailPageProps) {
               </div>
               <div>
                 <dt>Uploaded</dt>
-                <dd>{formatDateTime(report.createdAt)}</dd>
+                <dd>{formatDateTime(report.uploadedAt)}</dd>
               </div>
               <div>
                 <dt>Processing status</dt>

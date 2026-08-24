@@ -18,6 +18,7 @@ export type {
   VaultParsedObservationReviewItem,
   VaultReportDocument,
   VaultReportFilters,
+  VaultReportUploadMetadata,
   VaultResourceStatus,
   VaultSourceType,
   VaultTrendPoint
@@ -25,6 +26,8 @@ export type {
 export { ApiBackedPatientVaultService } from "./ApiBackedPatientVaultService";
 export { LocalPatientVaultService } from "./LocalPatientVaultService";
 export { getPatientVaultMode } from "./config";
+
+let patientVaultService: PatientVaultService | null = null;
 
 export function createPatientVaultService(
   mode: PatientVaultMode = getPatientVaultMode()
@@ -34,4 +37,9 @@ export function createPatientVaultService(
   }
 
   return new ApiBackedPatientVaultService();
+}
+
+export function getPatientVaultService(): PatientVaultService {
+  patientVaultService ??= createPatientVaultService();
+  return patientVaultService;
 }

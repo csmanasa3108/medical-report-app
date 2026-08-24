@@ -255,6 +255,63 @@ class ParsedObservationServiceTest {
     }
 
     @Test
+    void parseSkipsCandidateAlreadyConfirmedAfterValueWasEditedAndStillAddsNewCandidates() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID confirmedParsedObservationId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        UUID hemoglobinId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID wbcId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        UUID confirmedLabObservationId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        Report report = report(reportId, userId);
+        report.markTextExtracted("""
+            Hemoglobin 12.8 g/dL 12.0 - 15.5
+            WBC 6.4 10^3/uL 4.0 - 11.0
+            """, Instant.parse("2026-07-10T13:00:00Z"));
+        ParsedObservation confirmedObservation = parsedObservation(
+            confirmedParsedObservationId,
+            reportId,
+            hemoglobinId,
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("13.1")
+        );
+        confirmedObservation.setRawValue("13.1");
+        confirmedObservation.markConfirmed(confirmedLabObservationId, Instant.parse("2026-07-10T15:00:00Z"));
+
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
+        when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
+            new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL"),
+            new TestCatalogMatch(wbcId, "wbc", "WBC", "10^3/uL")
+        ));
+        when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
+            .thenReturn(List.of(confirmedObservation));
+        AtomicReference<List<ParsedObservation>> storedObservations = new AtomicReference<>(List.of(confirmedObservation));
+        when(parsedObservationRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.anyList()))
+            .thenAnswer(invocation -> {
+                List<ParsedObservation> newObservations = invocation.getArgument(0);
+                storedObservations.set(List.of(confirmedObservation, newObservations.getFirst()));
+                return newObservations;
+            });
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenAnswer(invocation -> storedObservations.get());
+
+        List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
+
+        ArgumentCaptor<List<ParsedObservation>> observationsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(parsedObservationRepository).saveAllAndFlush(observationsCaptor.capture());
+        assertThat(observationsCaptor.getValue()).hasSize(1);
+        assertThat(observationsCaptor.getValue().getFirst().getRawTestName()).isEqualTo("WBC");
+        assertThat(responses).extracting(ParsedObservationResponse::id)
+            .contains(confirmedParsedObservationId);
+        assertThat(responses).filteredOn(response -> response.status().equals("NEEDS_REVIEW"))
+            .extracting(ParsedObservationResponse::rawTestName)
+            .containsExactly("WBC");
+        assertThat(confirmedObservation.getStatus()).isEqualTo(ParsedObservationStatus.CONFIRMED);
+        assertThat(confirmedObservation.getConfirmedObservationId()).isEqualTo(confirmedLabObservationId);
+        assertThat(confirmedObservation.getNumericValue()).isEqualByComparingTo("13.1");
+    }
+
+    @Test
     void parseSkipsCandidatesAlreadyConfirmedByRawTestNameWhenCandidateIsUnmatched() {
         UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -319,6 +376,44 @@ class ParsedObservationServiceTest {
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().id()).isEqualTo(rejectedParsedObservationId);
         assertThat(responses.getFirst().status()).isEqualTo("REJECTED");
+    }
+
+    @Test
+    void parsePreservesRejectedParsedObservationAfterValueWasEdited() {
+        UUID userId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID reportId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID rejectedParsedObservationId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        UUID hemoglobinId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        Report report = report(reportId, userId);
+        report.markTextExtracted("Hemoglobin 12.8 g/dL 12.0 - 15.5", Instant.parse("2026-07-10T13:00:00Z"));
+        ParsedObservation rejectedObservation = parsedObservation(
+            rejectedParsedObservationId,
+            reportId,
+            hemoglobinId,
+            LocalDate.parse("2026-07-09"),
+            new BigDecimal("13.1")
+        );
+        rejectedObservation.setRawValue("13.1");
+        rejectedObservation.markRejected();
+
+        allowDefaultUserAccess(userId);
+        when(reportRepository.findByIdForUpdate(reportId)).thenReturn(Optional.of(report));
+        when(testCatalogLookupService.findAllForMatching()).thenReturn(List.of(
+            new TestCatalogMatch(hemoglobinId, "hemoglobin", "Hemoglobin", "g/dL")
+        ));
+        when(parsedObservationRepository.findByReportIdAndStatusInOrderByCreatedAtAsc(reportId, List.of(ParsedObservationStatus.CONFIRMED, ParsedObservationStatus.REJECTED)))
+            .thenReturn(List.of(rejectedObservation));
+        when(parsedObservationRepository.findByReportIdOrderByCreatedAtAsc(reportId))
+            .thenReturn(List.of(rejectedObservation));
+
+        List<ParsedObservationResponse> responses = parsedObservationService.parse(reportId);
+
+        verify(parsedObservationRepository).deleteByReportIdAndStatus(reportId, ParsedObservationStatus.NEEDS_REVIEW);
+        verify(parsedObservationRepository, never()).saveAllAndFlush(any());
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().id()).isEqualTo(rejectedParsedObservationId);
+        assertThat(responses.getFirst().status()).isEqualTo("REJECTED");
+        assertThat(rejectedObservation.getNumericValue()).isEqualByComparingTo("13.1");
     }
 
     @Test
